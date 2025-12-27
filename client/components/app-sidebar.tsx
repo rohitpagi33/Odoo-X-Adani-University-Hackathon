@@ -137,10 +137,6 @@ const adminNavItems: NavItem[] = [
   },
 ]
 
-/**
- * Manager navigation items
- * Team and operational management
- */
 const managerNavItems: NavItem[] = [
   {
     title: "Dashboard",
@@ -180,10 +176,6 @@ const managerNavItems: NavItem[] = [
   },
 ]
 
-/**
- * Technician navigation items
- * Task-focused access
- */
 const technicianNavItems: NavItem[] = [
   {
     title: "Dashboard",
@@ -214,10 +206,6 @@ export function AppSidebar() {
   const [navItems, setNavItems] = useState<NavItem[]>([])
   const [mounted, setMounted] = useState(false)
 
-  /**
-   * Initialize sidebar based on user role
-   * Runs once on component mount
-   */
   useEffect(() => {
     const role = getRole()
     setUserRole(role)
@@ -254,7 +242,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       {/* ========== HEADER ========== */}
-      <SidebarHeader className="h-16 border-b border-sidebar-border/50 px-6 flex items-center">
+      <SidebarHeader className="h-16 border-b border-sidebar-border/50 px-6 flex mt-5">
         <Link
           href={
             userRole === 'admin'
@@ -265,10 +253,12 @@ export function AppSidebar() {
           }
           className="flex items-center gap-3 font-semibold group-data-[collapsible=icon]:hidden"
         >
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+          <div className="size-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/25">
             <WrenchIcon className="size-5" />
           </div>
-          <span className="text-xl tracking-tight">GearGuard</span>
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            GearGuard
+          </span>
         </Link>
         <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-full">
           <WrenchIcon className="size-6 text-primary" />
