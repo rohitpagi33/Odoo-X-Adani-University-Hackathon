@@ -8,6 +8,8 @@ export interface AuthRequest extends Request {
     email: string;
     role: 'admin' | 'manager' | 'technician';
   };
+  body: any;
+  params: any;
 }
 
 /**

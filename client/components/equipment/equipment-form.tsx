@@ -13,6 +13,17 @@ import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
+// Types for dynamic data
+interface Team {
+  id: string
+  name: string
+}
+
+interface Technician {
+  id: string
+  full_name: string
+}
+
 export function EquipmentForm() {
   const { toast } = useToast()
   const [purchaseDate, setPurchaseDate] = React.useState<Date>()
@@ -22,13 +33,62 @@ export function EquipmentForm() {
   const [serial, setSerial] = React.useState("")
   const [location, setLocation] = React.useState("")
   const [department, setDepartment] = React.useState("")
+  const [team, setTeam] = React.useState("")
+  const [technician, setTechnician] = React.useState("")
+  
+  // Dynamic data states
+  const [teams, setTeams] = React.useState<Team[]>([])
+  const [technicians, setTechnicians] = React.useState<Technician[]>([])
+  const [loadingTeams, setLoadingTeams] = React.useState(false)
+  const [loadingTechnicians, setLoadingTechnicians] = React.useState(false)
+
+  // Fetch teams from database
+  React.useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        setLoadingTeams(true)
+        const data = await api.get<Team[]>("/teams")
+        setTeams(data || [])
+      } catch (error) {
+        console.error("Failed to fetch teams:", error)
+        toast({ description: "Failed to load teams", variant: "destructive" })
+      } finally {
+        setLoadingTeams(false)
+      }
+    }
+    fetchTeams()
+  }, [toast])
+
+  // Fetch technicians when team is selected
+  React.useEffect(() => {
+    if (!team) {
+      setTechnicians([])
+      return
+    }
+
+    const fetchTechnicians = async () => {
+      try {
+        setLoadingTechnicians(true)
+        const data = await api.get<Technician[]>(`/teams/${team}/members`)
+        setTechnicians(data || [])
+        setTechnician("") // Reset technician selection when team changes
+      } catch (error) {
+        console.error("Failed to fetch technicians:", error)
+        toast({ description: "Failed to load team members", variant: "destructive" })
+      } finally {
+        setLoadingTechnicians(false)
+      }
+    }
+    fetchTechnicians()
+  }, [team, toast])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      if (!name || !serial || !location || !department || !purchaseDate) {
+      if (!name || !serial || !location || !department || !purchaseDate || !team) {
         toast({ description: "Please fill all required fields", variant: "destructive" })
+        setSaving(false)
         return
       }
       const body = {
@@ -38,9 +98,20 @@ export function EquipmentForm() {
         department,
         purchase_date: purchaseDate.toISOString().slice(0, 10),
         warranty_expiry: warrantyDate ? warrantyDate.toISOString().slice(0, 10) : undefined,
+        maintenance_team_id: team,
+        default_technician_id: technician || undefined,
       }
       const created = await api.post<any>("/equipment", body)
-      toast({ description: "Equipment created" })
+      toast({ description: "Equipment created successfully" })
+      // Reset form
+      setName("")
+      setSerial("")
+      setLocation("")
+      setDepartment("")
+      setTeam("")
+      setTechnician("")
+      setPurchaseDate(undefined)
+      setWarrantyDate(undefined)
     } catch (err: any) {
       toast({ description: err?.message || "Failed to save", variant: "destructive" })
     } finally {
@@ -121,27 +192,27 @@ export function EquipmentForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="team">Maintenance Team</Label>
-          <Select>
+          <Select value={team} onValueChange={setTeam} disabled={loadingTeams}>
             <SelectTrigger>
-              <SelectValue placeholder="Select team" />
+              <SelectValue placeholder={loadingTeams ? "Loading teams..." : "Select team"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="electrical">Electrical Team</SelectItem>
-              <SelectItem value="mechanical">Mechanical Team</SelectItem>
-              <SelectItem value="hvac">HVAC Specialists</SelectItem>
+              {teams.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="technician">Default Technician</Label>
-          <Select>
+          <Select value={technician} onValueChange={setTechnician} disabled={loadingTechnicians || !team}>
             <SelectTrigger>
-              <SelectValue placeholder="Select technician" />
+              <SelectValue placeholder={loadingTechnicians ? "Loading..." : "Select technician"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="t1">John Smith</SelectItem>
-              <SelectItem value="t2">Sarah Connor</SelectItem>
-              <SelectItem value="t3">Mike Ross</SelectItem>
+              {technicians.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

@@ -11,19 +11,40 @@ import {
 } from '../models/request.model';
 import { findEquipmentById, updateEquipment } from '../models/equipment.model';
 
-export const createRequest = async (requestData: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at' | 'maintenance_team_id' | 'technician_id' | 'status'>): Promise<MaintenanceRequest | null> => {
-  // Fetch equipment to auto-fill maintenance_team_id and technician_id
+export const createRequest = async (requestData: any): Promise<MaintenanceRequest | null> => {
+  // Fetch equipment to validate it exists
   const equipment = await findEquipmentById(requestData.equipment_id);
   
   if (!equipment) {
     return null;
   }
   
+  // Parse duration from string to interval format
+  let durationInterval = '02:00:00';
+  if (requestData.duration) {
+    if (typeof requestData.duration === 'string') {
+      const match = requestData.duration.match(/([\d.]+)/);
+      const hours = match ? parseFloat(match[1]) : 2;
+      const mins = (hours % 1) * 60;
+      durationInterval = `${String(Math.floor(hours)).padStart(2, '0')}:${String(Math.floor(mins)).padStart(2, '0')}:00`;
+    } else {
+      const hours = Math.floor(requestData.duration);
+      const mins = (requestData.duration % 1) * 60;
+      durationInterval = `${String(hours).padStart(2, '0')}:${String(Math.floor(mins)).padStart(2, '0')}:00`;
+    }
+  }
+  
+  // Use provided values or fall back to equipment defaults
   const newRequest = {
-    ...requestData,
-    maintenance_team_id: equipment.maintenance_team_id,
-    technician_id: equipment.default_technician_id,
-    status: 'New' as RequestStatus,
+    description: requestData.description,
+    request_type: requestData.request_type || 'maintenance',
+    equipment_id: requestData.equipment_id,
+    maintenance_team_id: requestData.maintenance_team_id || equipment.maintenance_team_id,
+    technician_id: requestData.technician_id || equipment.default_technician_id,
+    priority: requestData.priority || 'medium',
+    scheduled_date: requestData.scheduled_date || new Date().toISOString(),
+    duration: durationInterval,
+    created_by: requestData.created_by,
   };
   
   return await addRequest(newRequest);
@@ -36,12 +57,12 @@ export const updateRequestStatus = async (id: string, status: RequestStatus): Pr
     return null;
   }
   
-  // Workflow validation: New → In Progress → Repaired
+  // Workflow validation
   const validTransitions: Record<RequestStatus, RequestStatus[]> = {
-    'New': ['In Progress', 'Scrap'],
-    'In Progress': ['Repaired', 'Scrap'],
-    'Repaired': [],
-    'Scrap': []
+    'pending': ['in_progress', 'cancelled'],
+    'in_progress': ['completed', 'cancelled'],
+    'completed': [],
+    'cancelled': []
   };
   
   const allowedStatuses = validTransitions[request.status];
@@ -50,9 +71,9 @@ export const updateRequestStatus = async (id: string, status: RequestStatus): Pr
     throw new Error(`Invalid status transition from ${request.status} to ${status}`);
   }
   
-  // If moved to Scrap, update equipment
-  if (status === 'Scrap') {
-    await updateEquipment(request.equipment_id, { is_scrapped: true });
+  // If moved to completed, update equipment
+  if (status === 'completed') {
+    await updateEquipment(request.equipment_id, { is_scrapped: false });
   }
   
   return await updateRequestModel(id, { status });

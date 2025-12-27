@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { EquipmentForm } from "@/components/equipment/equipment-form"
+import { RequestForm } from "@/components/requests/request-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 type Equipment = {
@@ -21,19 +22,33 @@ type Equipment = {
   is_scrapped: boolean
 }
 
+type Team = {
+  id: string
+  name: string
+}
+
 export function EquipmentList() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [items, setItems] = React.useState<Equipment[]>([])
+  const [teams, setTeams] = React.useState<Team[]>([])
   const [loading, setLoading] = React.useState<boolean>(true)
   const [error, setError] = React.useState<string>("")
+  const [selectedEquipment, setSelectedEquipment] = React.useState<Equipment | null>(null)
+  const [showRequestDialog, setShowRequestDialog] = React.useState(false)
 
   React.useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
         setLoading(true)
-        const data = await api.get<Equipment[]>("/equipment")
-        if (mounted) setItems(data)
+        const [equipmentData, teamsData] = await Promise.all([
+          api.get<Equipment[]>("/equipment"),
+          api.get<Team[]>("/teams"),
+        ])
+        if (mounted) {
+          setItems(equipmentData)
+          setTeams(teamsData)
+        }
       } catch (err: any) {
         if (mounted) setError(err?.message || "Failed to load equipment")
       } finally {
@@ -45,11 +60,27 @@ export function EquipmentList() {
     }
   }, [])
 
+  const getTeamName = (teamId?: string) => {
+    if (!teamId) return "—"
+    const team = teams.find(t => t.id === teamId)
+    return team?.name || teamId
+  }
+
   const filteredEquipment = items.filter(
     (item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.serial_number || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const handleRequestClick = (equipment: Equipment) => {
+    setSelectedEquipment(equipment)
+    setShowRequestDialog(true)
+  }
+
+  const handleRequestSuccess = () => {
+    setShowRequestDialog(false)
+    setSelectedEquipment(null)
+  }
 
   return (
     <div className="space-y-4">
@@ -75,7 +106,7 @@ export function EquipmentList() {
                 Add Equipment
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl" suppressHydrationWarning>
               <DialogHeader>
                 <DialogTitle>Add New Equipment</DialogTitle>
               </DialogHeader>
@@ -127,12 +158,17 @@ export function EquipmentList() {
                 <TableCell className="text-muted-foreground">{item.location}</TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">
-                    {item.maintenance_team_id ? item.maintenance_team_id : "—"}
+                    {getTeamName(item.maintenance_team_id)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" className="gap-2 relative h-8 px-3">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="gap-2 relative h-8 px-3"
+                      onClick={() => handleRequestClick(item)}
+                    >
                       <WrenchIcon className="size-3.5 text-primary" />
                       <span>Requests</span>
                     </Button>
@@ -147,6 +183,21 @@ export function EquipmentList() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+        <DialogContent className="max-w-2xl" suppressHydrationWarning>
+          <DialogHeader>
+            <DialogTitle>Create Maintenance Request</DialogTitle>
+          </DialogHeader>
+          {selectedEquipment && (
+            <RequestForm 
+              equipment={selectedEquipment} 
+              onSuccess={handleRequestSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+

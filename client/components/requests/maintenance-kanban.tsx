@@ -2,7 +2,6 @@
 import * as React from "react"
 import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon } from "lucide-react"
 import { format, isBefore, startOfToday } from "date-fns"
-import { TooltipProvider } from "react-tooltip"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,58 +9,64 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { RequestForm } from "@/components/requests/request-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
-type RequestStatus = "New" | "In Progress" | "Repaired" | "Scrap"
+type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled"
 
 interface MaintenanceRequest {
   id: string
-  subject: string
-  equipmentName: string
-  type: "Corrective" | "Preventive"
+  description: string
+  equipment_name: string
+  request_type: "maintenance" | "repair" | "inspection"
   status: RequestStatus
-  technician: {
-    name: string
-    avatar?: string
-  }
-  scheduledDate: Date
+  technician_name?: string
+  created_at: string
+  scheduled_date: string
+  duration: string
+  priority: "low" | "medium" | "high"
 }
 
-const initialRequests: MaintenanceRequest[] = [
-  {
-    id: "REQ-001",
-    subject: "Compressor Vibration",
-    equipmentName: "HVAC Unit - Main Hall",
-    type: "Corrective",
-    status: "New",
-    technician: { name: "John Smith", avatar: "/diverse-user-avatars.png" },
-    scheduledDate: new Date(2025, 11, 20),
-  },
-  {
-    id: "REQ-002",
-    subject: "Routine Filter Change",
-    equipmentName: "Backup Generator",
-    type: "Preventive",
-    status: "In Progress",
-    technician: { name: "Sarah Connor" },
-    scheduledDate: new Date(2025, 11, 28),
-  },
-  {
-    id: "REQ-003",
-    subject: "Spindle Motor Failure",
-    equipmentName: "CNC Milling Machine",
-    type: "Corrective",
-    status: "New",
-    technician: { name: "Mike Ross" },
-    scheduledDate: new Date(2025, 11, 25),
-  },
-]
+const DISPLAY_STATUS: Record<RequestStatus, string> = {
+  "pending": "New",
+  "in_progress": "In Progress",
+  "completed": "Repaired",
+  "cancelled": "Cancelled",
+}
 
-const COLUMNS: RequestStatus[] = ["New", "In Progress", "Repaired", "Scrap"]
+const COLUMNS: RequestStatus[] = ["pending", "in_progress", "completed", "cancelled"]
 
 export function MaintenanceKanban() {
-  const [requests, setRequests] = React.useState(initialRequests)
+  const { toast } = useToast()
+  const [requests, setRequests] = React.useState<MaintenanceRequest[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+
+  const fetchRequests = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const data = await api.get<MaintenanceRequest[]>("/requests")
+      setRequests(data || [])
+    } catch (error: any) {
+      console.error("Failed to fetch requests:", error)
+      toast({ description: "Failed to load requests", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  // Fetch requests from database on mount
+  React.useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
+
+  const handleRequestSuccess = () => {
+    setDialogOpen(false)
+    // Refresh requests after successful creation
+    setTimeout(() => fetchRequests(), 500)
+  }
 
   const onDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("requestId", id)
@@ -100,7 +105,7 @@ export function MaintenanceKanban() {
               <FilterIcon className="size-4" />
               Group By Team
             </Button>
-            <Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-2">
                   <PlusIcon className="size-4" />
@@ -111,7 +116,7 @@ export function MaintenanceKanban() {
                 <DialogHeader>
                   <DialogTitle>Create Maintenance Request</DialogTitle>
                 </DialogHeader>
-                <RequestForm />
+                <RequestForm onSuccess={handleRequestSuccess} />
               </DialogContent>
             </Dialog>
           </div>
@@ -128,7 +133,7 @@ export function MaintenanceKanban() {
               >
                 <div className="flex items-center justify-between mb-4 px-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{status}</h3>
+                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{DISPLAY_STATUS[status]}</h3>
                     <Badge
                       variant="secondary"
                       className="rounded-full h-5 min-w-5 p-0 flex items-center justify-center"
@@ -174,7 +179,20 @@ function KanbanCard({
   request: MaintenanceRequest
   onDragStart: (e: React.DragEvent, id: string) => void
 }) {
-  const isOverdue = isBefore(request.scheduledDate, startOfToday()) && request.status !== "Repaired"
+  const scheduledDate = new Date(request.scheduled_date)
+  const isOverdue = isBefore(scheduledDate, new Date()) && request.status !== "completed"
+  
+  // Parse duration - handle both interval string ("02:30:00") and direct strings
+  const getDurationHours = (duration: string): string => {
+    if (duration.includes(':')) {
+      const parts = duration.split(':')
+      const hours = parseInt(parts[0]) || 0
+      const mins = parseInt(parts[1]) || 0
+      if (mins > 0) return `${hours}h ${mins}m`
+      return `${hours}h`
+    }
+    return duration
+  }
 
   return (
     <div
@@ -182,30 +200,41 @@ function KanbanCard({
       onDragStart={(e) => onDragStart(e, request.id)}
       className={cn(
         "bg-background rounded-xl border p-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 group",
-        isOverdue && "border-rose-200 bg-rose-50/30",
+        request.priority === "high" && "border-rose-200 bg-rose-50/30",
+        isOverdue && "border-amber-200 bg-amber-50/30",
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-[10px] font-bold px-1.5 py-0 uppercase tracking-wide",
-            request.type === "Corrective"
-              ? "text-rose-600 border-rose-200 bg-rose-50"
-              : "text-blue-600 border-blue-200 bg-blue-50",
+        <div className="flex items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-bold px-1.5 py-0 uppercase tracking-wide",
+              request.request_type === "repair"
+                ? "text-rose-600 border-rose-200 bg-rose-50"
+                : "text-blue-600 border-blue-200 bg-blue-50",
+            )}
+          >
+            {request.request_type.charAt(0).toUpperCase() + request.request_type.slice(1)}
+          </Badge>
+          {isOverdue && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertCircleIcon className="size-3.5 text-amber-600" />
+              </TooltipTrigger>
+              <TooltipContent>Overdue</TooltipContent>
+            </Tooltip>
           )}
-        >
-          {request.type}
-        </Badge>
+        </div>
         <Button variant="ghost" size="icon-sm" className="size-6 -mr-2 opacity-0 group-hover:opacity-100">
           <MoreHorizontalIcon className="size-3.5" />
         </Button>
       </div>
 
-      <h4 className="font-semibold text-sm mb-1 leading-snug">{request.subject}</h4>
+      <h4 className="font-semibold text-sm mb-1 leading-snug line-clamp-2">{request.description}</h4>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
         <WrenchIcon className="size-3" />
-        <span>{request.equipmentName}</span>
+        <span className="truncate">{request.equipment_name}</span>
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t">
@@ -213,26 +242,26 @@ function KanbanCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <Avatar className="size-6 border border-background">
-                <AvatarImage src={request.technician.avatar || "/placeholder.svg"} />
                 <AvatarFallback className="text-[8px]">
-                  {request.technician.name.split(" ").map((n) => n[0])}
+                  {(request.technician_name || "T").split(" ").map((n) => n[0]).slice(0, 2).join("")}
                 </AvatarFallback>
               </Avatar>
             </TooltipTrigger>
-            <TooltipContent>Technician: {request.technician.name}</TooltipContent>
+            <TooltipContent>{request.technician_name || "Unassigned"}</TooltipContent>
           </Tooltip>
-          <span className="text-[10px] font-medium text-muted-foreground">{request.technician.name}</span>
+          <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[60px]">
+            {(request.technician_name || "Unassigned").split(" ")[0]}
+          </span>
         </div>
 
-        <div
-          className={cn(
-            "flex items-center gap-1 text-[10px] font-medium",
-            isOverdue ? "text-rose-600" : "text-muted-foreground",
-          )}
-        >
+        <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
           <ClockIcon className="size-3" />
-          {format(request.scheduledDate, "MMM d")}
-          {isOverdue && <AlertCircleIcon className="size-3 ml-0.5 fill-rose-600 text-white" />}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>{format(scheduledDate, "MMM d, h:mm a")}</span>
+            </TooltipTrigger>
+            <TooltipContent>{getDurationHours(request.duration)} duration</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

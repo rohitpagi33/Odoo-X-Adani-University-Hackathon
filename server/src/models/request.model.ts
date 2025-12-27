@@ -1,18 +1,18 @@
 import { supabase } from '../config/supabase';
 
 export type RequestType = "Corrective" | "Preventive";
-export type RequestStatus = "New" | "In Progress" | "Repaired" | "Scrap";
+export type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
 export interface MaintenanceRequest {
   id: string;
-  subject: string;
-  description?: string;
-  type: RequestType;
+  description: string;
+  request_type: string;
   equipment_id: string;
   maintenance_team_id?: string;
   technician_id?: string;
   scheduled_date: string;
-  duration: number; // in hours
+  duration: string; // interval type
+  priority: string;
   status: RequestStatus;
   created_by?: string;
   created_at?: string;
