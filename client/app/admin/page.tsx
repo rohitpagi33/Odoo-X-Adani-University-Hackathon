@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
+import { api } from '@/lib/api'
 
 interface DashboardStats {
   totalEquipment: number
@@ -25,14 +26,37 @@ export default function AdminDashboard() {
   })
 
   useEffect(() => {
-    setStats({
-      totalEquipment: 24,
-      totalRequests: 156,
-      totalUsers: 12,
-      totalTeams: 4,
-      pendingRequests: 8,
-      overdueRequests: 2
-    })
+    const load = async () => {
+      try {
+        const [equipment, requests, users, teams] = await Promise.all([
+          api.get<any[]>("/equipment"),
+          api.get<any[]>("/requests"),
+          api.get<any[]>("/auth/users"),
+          api.get<any[]>("/teams"),
+        ])
+
+        const now = Date.now()
+        const pending = requests.filter((r) => r.status === 'pending' || r.status === 'delayed').length
+        const overdue = requests.filter((r) => {
+          const scheduled = new Date(r.scheduled_date || r.scheduledDate || r.date)
+          if (Number.isNaN(scheduled.getTime())) return false
+          return scheduled.getTime() < now && r.status !== 'completed' && r.status !== 'cancelled'
+        }).length
+
+        setStats({
+          totalEquipment: equipment.length || 0,
+          totalRequests: requests.length || 0,
+          totalUsers: users.length || 0,
+          totalTeams: teams.length || 0,
+          pendingRequests: pending,
+          overdueRequests: overdue,
+        })
+      } catch (err) {
+        console.error('Failed to load dashboard stats', err)
+      }
+    }
+
+    load()
   }, [])
 
   return (

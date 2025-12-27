@@ -1,4 +1,5 @@
 "use client"
+import { useEffect, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Pie, PieChart } from "recharts"
 import { DownloadIcon, FileTextIcon, FilterIcon } from "lucide-react"
 
@@ -6,20 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-
-const teamData = [
-  { team: "HVAC", requests: 45, color: "var(--color-hvac)" },
-  { team: "Electrical", requests: 32, color: "var(--color-electrical)" },
-  { team: "Mechanical", requests: 28, color: "var(--color-mechanical)" },
-  { team: "Manufacturing", requests: 54, color: "var(--color-manufacturing)" },
-]
-
-const equipmentData = [
-  { name: "HVAC Unit 01", value: 12 },
-  { name: "Backup Gen", value: 8 },
-  { name: "CNC Milling", value: 24 },
-  { name: "Conveyor Belt", value: 15 },
-]
+import { api } from "@/lib/api"
 
 const chartConfig: ChartConfig = {
   requests: {
@@ -46,6 +34,97 @@ const chartConfig: ChartConfig = {
 const PIE_COLORS = ["oklch(0.45 0.15 240)", "oklch(0.65 0.15 180)", "oklch(0.75 0.15 60)", "oklch(0.55 0.2 300)"]
 
 export function MaintenanceReports() {
+  const [requests, setRequests] = useState<any[]>([])
+  const [teams, setTeams] = useState<any[]>([])
+  const [equipment, setEquipment] = useState<any[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [reqData, teamData, equipmentData] = await Promise.all([
+          api.get<any[]>("/requests"),
+          api.get<any[]>("/teams"),
+          api.get<any[]>("/equipment"),
+        ])
+        setRequests(reqData || [])
+        setTeams(teamData || [])
+        setEquipment(equipmentData || [])
+      } catch (err) {
+        console.error("Failed to load reports data", err)
+      }
+    }
+    load()
+  }, [])
+
+  const teamData = useMemo(() => {
+    if (!requests.length) return []
+    const counts: Record<string, number> = {}
+    requests.forEach((r) => {
+      const key = r.maintenance_team_id || "Unassigned"
+      counts[key] = (counts[key] || 0) + 1
+    })
+    return Object.entries(counts).map(([id, count]) => ({
+      team: teams.find((t) => t.id === id)?.name || (id === "Unassigned" ? "Unassigned" : id),
+      requests: count,
+    }))
+  }, [requests, teams])
+
+  const equipmentData = useMemo(() => {
+    if (!requests.length) return []
+    const counts: Record<string, number> = {}
+    requests.forEach((r) => {
+      const key = r.equipment_id || "Unknown"
+      counts[key] = (counts[key] || 0) + 1
+    })
+    return Object.entries(counts)
+      .map(([id, value]) => ({ name: equipment.find((e) => e.id === id)?.name || id, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 4)
+  }, [requests, equipment])
+
+  const total = requests.length || 0
+  const completed = requests.filter((r) => r.status === "completed").length
+  const completionRate = total ? `${((completed / total) * 100).toFixed(1)}%` : "0%"
+
+  const parseDurationHours = (val: string): number => {
+    if (!val) return 0
+    if (val.includes(":")) {
+      const [h, m] = val.split(":")
+      return (parseInt(h || "0") || 0) + (parseInt(m || "0") || 0) / 60
+    }
+    const num = parseFloat(val)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  const avgRepairHours = (() => {
+    const done = requests.filter((r) => r.status === "completed" && r.duration)
+    if (!done.length) return "0h"
+    const avg = done.reduce((sum, r) => sum + parseDurationHours(r.duration), 0) / done.length
+    return `${avg.toFixed(1)}h`
+  })()
+
+  const preventiveRatio = (() => {
+    const preventive = requests.filter((r) => r.request_type === "maintenance").length
+    return total ? `${((preventive / total) * 100).toFixed(0)}%` : "0%"
+  })()
+
+  const overdueTasks = requests.filter((r) => {
+    const dt = new Date(r.scheduled_date)
+    if (Number.isNaN(dt.getTime())) return false
+    return dt.getTime() < Date.now() && r.status !== "completed" && r.status !== "cancelled"
+  }).length
+
+  const recentReports = useMemo(() => {
+    return requests
+      .filter((r) => r.status === "completed")
+      .slice(0, 3)
+      .map((r) => ({
+        name: r.description || r.request_type || "Completed Request",
+        date: (r.status_changed_at || r.updated_at || r.created_at || new Date().toISOString()).split("T")[0],
+        size: r.report_url ? "PDF" : "-",
+      }))
+  }, [requests])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -69,10 +148,10 @@ export function MaintenanceReports() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Completion Rate", value: "94.2%", desc: "+2.1% from last month" },
-          { label: "Avg. Repair Time", value: "3.4h", desc: "-15m from last month" },
-          { label: "Preventive Ratio", value: "68%", desc: "Target: >70%" },
-          { label: "Overdue Tasks", value: "3", desc: "Critical attention required" },
+          { label: "Completion Rate", value: completionRate, desc: "Completed / total" },
+          { label: "Avg. Repair Time", value: avgRepairHours, desc: "Average duration of completed" },
+          { label: "Preventive Ratio", value: preventiveRatio, desc: "Maintenance vs total" },
+          { label: "Overdue Tasks", value: overdueTasks.toString(), desc: "Past scheduled, still open" },
         ].map((item) => (
           <Card key={item.label}>
             <CardHeader className="pb-2">
@@ -165,11 +244,7 @@ export function MaintenanceReports() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { name: "Monthly Maintenance Summary - Nov 2025", date: "2025-11-30", size: "2.4 MB" },
-              { name: "Equipment Warranty Audit - Q4", date: "2025-12-05", size: "1.1 MB" },
-              { name: "Technician Performance Review", date: "2025-12-12", size: "850 KB" },
-            ].map((report) => (
+            {(recentReports.length ? recentReports : [{ name: "No completed reports yet", date: "-", size: "-" }]).map((report) => (
               <div key={report.name} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div className="flex items-center gap-3">
                   <div className="size-9 rounded bg-background flex items-center justify-center border shadow-sm">
