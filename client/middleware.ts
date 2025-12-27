@@ -22,28 +22,16 @@ const protectedRoutes = {
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // Get token from cookies (if using cookies) or headers
-  const token = request.cookies.get('GG_TOKEN')?.value
-
-  // Get user data from request headers (set by client)
-  const userDataHeader = request.headers.get('X-User-Role')
-
   // Check if route is protected
   const isProtectedRoute = Object.keys(protectedRoutes).some(route => 
     pathname.startsWith(route)
   )
 
   if (isProtectedRoute) {
-    // If no token, redirect to login
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    // For dashboard routes, check role (this is a basic check)
-    // Full validation happens client-side
-    if (!userDataHeader) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
+    // Client-side auth with localStorage is used, so we allow the request to go through
+    // The client-side layout components will handle the actual validation and redirect if needed
+    // This prevents middleware from blocking legitimate requests that have valid tokens in localStorage
+    return NextResponse.next()
   }
 
   return NextResponse.next()
@@ -57,3 +45,4 @@ export const config = {
     '/technician/:path*'
   ]
 }
+

@@ -1,19 +1,3 @@
-/**
- * Technician Dashboard Layout
- * 
- * Purpose: Wrapper layout for all technician pages
- * Features:
- * - Role verification (technician only)
- * - Redirect if unauthorized
- * - Persistent sidebar navigation
- * - Top navigation bar
- * 
- * Routes under this layout:
- * - /technician (dashboard home)
- * - /technician/requests (assigned maintenance requests)
- * - /technician/calendar (work schedule)
- */
-
 'use client'
 
 import { useEffect } from 'react'
@@ -30,8 +14,6 @@ export default function TechnicianLayout({ children }: TechnicianLayoutProps) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is technician
-    // If not, redirect to appropriate dashboard
     if (!isAuthenticatedWithRole('technician')) {
       router.replace('/login')
     }
@@ -41,10 +23,7 @@ export default function TechnicianLayout({ children }: TechnicianLayoutProps) {
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1">
-        {/* Technician-specific content wrapper */}
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-6">{children}</div>
       </main>
     </SidebarProvider>
   )

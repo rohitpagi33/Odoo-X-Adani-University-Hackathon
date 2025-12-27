@@ -210,8 +210,9 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   const [userRole, setUserRole] = useState<'admin' | 'manager' | 'technician' | null>(null)
-  const [userData, setUserData] = useState(getUser())
+  const [userData, setUserData] = useState<ReturnType<typeof getUser>>(null)
   const [navItems, setNavItems] = useState<NavItem[]>([])
+  const [mounted, setMounted] = useState(false)
 
   /**
    * Initialize sidebar based on user role
@@ -236,6 +237,9 @@ export function AppSidebar() {
       default:
         setNavItems([])
     }
+    
+    // Mark as mounted to avoid hydration mismatch
+    setMounted(true)
   }, [])
 
   /**
@@ -306,18 +310,18 @@ export function AppSidebar() {
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src="/diverse-user-avatars.png" alt="User" />
                     <AvatarFallback className="rounded-lg">
-                      {userData?.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                      {mounted ? (userData?.full_name?.substring(0, 2).toUpperCase() || 'U') : 'U'}
                     </AvatarFallback>
                   </Avatar>
 
                   {/* USER INFO (Hidden when collapsed) */}
                   <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden ml-1">
                     <span className="truncate font-semibold">
-                      {userData?.full_name || 'User'}
+                      {mounted ? (userData?.full_name || 'User') : 'User'}
                     </span>
                     {/* USER ROLE BADGE */}
                     <span className="truncate text-xs text-sidebar-foreground/70 capitalize">
-                      {userRole || 'Unknown'}
+                      {mounted ? (userRole || 'Unknown') : 'Unknown'}
                     </span>
                   </div>
                 </SidebarMenuButton>
@@ -332,10 +336,10 @@ export function AppSidebar() {
               >
                 {/* USER PROFILE INFO */}
                 <div className="px-2 py-1.5 text-sm">
-                  <p className="font-medium">{userData?.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{userData?.email}</p>
+                  <p className="font-medium">{mounted ? (userData?.full_name || 'User') : 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{mounted ? (userData?.email || '') : ''}</p>
                   <p className="text-xs text-muted-foreground capitalize mt-1">
-                    Role: <span className="font-medium">{userRole}</span>
+                    Role: <span className="font-medium">{mounted ? (userRole || 'Unknown') : 'Unknown'}</span>
                   </p>
                 </div>
 

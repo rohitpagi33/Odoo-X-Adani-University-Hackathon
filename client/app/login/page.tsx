@@ -55,42 +55,51 @@ export default function LoginPage() {
     setLoading(true)
     try {
       // Call login API
-      // Response should include: { id, email, full_name, role, token }
-      const res = await api.post<User>("/auth/login", { email, password })
+      // Response structure: { message, user: {...}, token }
+      const res = await api.post<any>("/auth/login", { email, password })
+      console.log('Login response:', res)
 
-      if (res && res.token && res.role) {
+      // Extract user data from response
+      const userData = res?.user
+      const token = res?.token
+
+      if (userData && token && userData.role) {
         // Store token in localStorage
-        setToken(res.token)
+        setToken(token)
+        console.log('Token set:', token)
 
         // Store complete user object in localStorage
         setUser({
-          id: res.id,
-          email: res.email,
-          full_name: res.full_name,
-          role: res.role,
-          token: res.token
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.full_name,
+          role: userData.role,
+          token: token
         })
+        console.log('User set:', userData.role)
 
         // Show success message
         toast({ 
-          description: `Welcome ${res.full_name}! Redirecting to dashboard...` 
+          description: `Welcome ${userData.full_name}! Redirecting to dashboard...` 
         })
 
         // Get dashboard route based on role
         const dashboardRoute = getDashboardRoute()
+        console.log('Dashboard route:', dashboardRoute)
 
         // Redirect to role-specific dashboard
-        // Use router.replace() instead of router.push() to avoid back button issues
         router.replace(dashboardRoute)
         return
       }
 
       // Login failed
+      console.log('Login failed - missing user data or token', { userData, token })
       toast({ 
         description: 'Login failed. Please check your credentials.',
         variant: 'destructive' 
       })
     } catch (err: any) {
+      console.error('Login error:', err)
       toast({ 
         description: err.message || 'Login failed. Please try again.',
         variant: 'destructive' 
