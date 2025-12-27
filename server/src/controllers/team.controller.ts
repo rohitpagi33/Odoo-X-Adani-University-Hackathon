@@ -1,9 +1,16 @@
 import { Request, Response } from 'express';
-import { addTeam, getAllTeams as getTeamsModel, addTeamMember, getAllTechnicians } from '../models/team.model';
+import { addTeam, getAllTeams as getTeamsModel, addTeamMember, getAllTechnicians, getTeamsByManager } from '../models/team.model';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-export const getAllTeams = async (req: Request, res: Response): Promise<void> => {
+export const getAllTeams = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // If the requester is a manager, only return teams they manage
+    if (req.user && req.user.role === 'manager') {
+      const teams = await getTeamsByManager(req.user.id);
+      res.status(200).json(teams);
+      return;
+    }
+
     const teams = await getTeamsModel();
     res.status(200).json(teams);
   } catch (error) {

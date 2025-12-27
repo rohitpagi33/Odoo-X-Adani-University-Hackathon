@@ -121,6 +121,41 @@ export const getAllTeams = async (): Promise<MaintenanceTeam[]> => {
   }));
 };
 
+export const getTeamsByManager = async (managerId: string): Promise<MaintenanceTeam[]> => {
+  const { data, error } = await supabaseAdmin
+    .from('maintenance_teams')
+    .select(`
+      *,
+      manager:users!maintenance_teams_manager_id_fkey (
+        id,
+        full_name,
+        email
+      ),
+      team_members (
+        user_id,
+        users:users!team_members_user_id_fkey (
+          id,
+          email,
+          full_name,
+          avatar_url,
+          role
+        )
+      )
+    `)
+    .eq('manager_id', managerId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching teams for manager:', error);
+    return [];
+  }
+
+  return (data || []).map(team => ({
+    ...team,
+    members: team.team_members?.map((tm: any) => tm.users).filter(Boolean) || []
+  }));
+}
+
 export const addTeamMember = async (teamId: string, userId: string, addedBy?: string): Promise<TeamMember | null> => {
   const { data, error } = await supabaseAdmin
     .from('team_members')
