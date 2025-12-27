@@ -31,10 +31,11 @@ interface Equipment {
 
 interface RequestFormProps {
   equipment?: Equipment
+  request?: any
   onSuccess?: () => void
 }
 
-export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
+export function RequestForm({ equipment, request, onSuccess }: RequestFormProps) {
   const { toast } = useToast()
   const role = React.useMemo(() => getRole(), [])
   const isTechnician = role === "technician"
@@ -58,6 +59,26 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
   const [technicians, setTechnicians] = React.useState<Technician[]>([])
   const [loadingEquipment, setLoadingEquipment] = React.useState(false)
   const [loadingTeams, setLoadingTeams] = React.useState(false)
+
+  // Load request data when editing
+  React.useEffect(() => {
+    if (request) {
+      setDescription(request.description || "")
+      setPriority(request.priority || "medium")
+      setRequestType(request.request_type || "maintenance")
+      setDuration(request.duration || "2")
+      setSelectedEquipment(request.equipment_id || "")
+      setTeam(request.maintenance_team_id || "")
+      setTechnician(request.technician_id || "")
+      
+      // Format scheduled date
+      if (request.scheduled_date) {
+        const date = new Date(request.scheduled_date)
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+        setScheduledDate(date.toISOString().slice(0, 16))
+      }
+    }
+  }, [request?.id])
 
   // Fetch equipment and teams on mount
   React.useEffect(() => {
@@ -96,9 +117,7 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
     } else {
       setTechnicians([])
     }
-  }, [team, teams])
-
-  // When equipment selection changes, auto-select its team
+  }, [team, teams])  // When equipment selection changes, auto-select its team
   const handleEquipmentChange = (eqId: string) => {
     setSelectedEquipment(eqId)
     const selected = equipmentList.find(e => e.id === eqId)
@@ -135,9 +154,15 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
         technician_id: technician || undefined,
       }
 
-      await api.post("/requests", body)
-      
-      toast({ description: "✓ Request created successfully!", variant: "default" })
+      if (request) {
+        // Update existing request
+        await api.patch(`/requests/${request.id}`, body)
+        toast({ description: "✓ Request updated successfully!", variant: "default" })
+      } else {
+        // Create new request
+        await api.post("/requests", body)
+        toast({ description: "✓ Request created successfully!", variant: "default" })
+      }
       
       // Reset form
       setDescription("")
@@ -301,7 +326,9 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" type="button" onClick={() => onSuccess?.()}>Cancel</Button>
-        <Button type="submit" disabled={saving || isTechnician}>{saving ? "Creating..." : "Create Request"}</Button>
+        <Button type="submit" disabled={saving || isTechnician}>
+          {saving ? (request ? "Updating..." : "Creating...") : (request ? "Update Request" : "Create Request")}
+        </Button>
       </div>
     </form>
   )

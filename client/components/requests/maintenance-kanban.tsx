@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon, FileIcon, SendIcon } from "lucide-react"
+import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon, FileIcon, SendIcon, PencilIcon } from "lucide-react"
 import { format, isBefore } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -49,13 +49,16 @@ export function MaintenanceKanban() {
   const [loading, setLoading] = React.useState(true)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false)
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false)
   const [selectedRequest, setSelectedRequest] = React.useState<MaintenanceRequest | null>(null)
+  const [editRequest, setEditRequest] = React.useState<MaintenanceRequest | null>(null)
   const [targetStatus, setTargetStatus] = React.useState<RequestStatus | null>(null)
   const [statusNotes, setStatusNotes] = React.useState("")
   const [statusFile, setStatusFile] = React.useState<{ base64: string; name: string } | null>(null)
   const [statusSaving, setStatusSaving] = React.useState(false)
   const role = React.useMemo(() => getRole(), [])
   const isTechnician = role === "technician"
+  const isAdmin = role === "admin"
 
   const allowedTransitions = React.useCallback((status: RequestStatus): RequestStatus[] => {
     switch (status) {
@@ -92,6 +95,17 @@ export function MaintenanceKanban() {
     setDialogOpen(false)
     // Refresh requests after successful creation
     setTimeout(() => fetchRequests(), 500)
+  }
+
+  const handleEditRequest = (request: MaintenanceRequest) => {
+    setEditRequest(request)
+    setEditDialogOpen(true)
+  }
+
+  const handleEditSuccess = () => {
+    setEditDialogOpen(false)
+    setEditRequest(null)
+    fetchRequests()
   }
 
   const openStatusDialog = (request: MaintenanceRequest, next?: RequestStatus) => {
@@ -220,7 +234,13 @@ export function MaintenanceKanban() {
                   {requests
                     .filter((req) => req.status === status)
                     .map((req) => (
-                      <KanbanCard key={req.id} request={req} onUpdate={() => openStatusDialog(req)} />
+                      <KanbanCard 
+                        key={req.id} 
+                        request={req} 
+                        onUpdate={() => openStatusDialog(req)}
+                        onEdit={() => handleEditRequest(req)}
+                        canEdit={isAdmin && req.status !== "completed"}
+                      />
                     ))}
                   {requests.filter((req) => req.status === status).length === 0 && (
                     <div className="h-24 border-2 border-dashed border-muted flex items-center justify-center rounded-xl text-xs text-muted-foreground/60 italic">
@@ -233,6 +253,15 @@ export function MaintenanceKanban() {
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Request</DialogTitle>
+            </DialogHeader>
+            {editRequest && <RequestForm request={editRequest} onSuccess={handleEditSuccess} />}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
           <DialogContent className="max-w-lg">
@@ -297,10 +326,12 @@ function KanbanCard({
   request,
   onUpdate,
   onEdit,
+  canEdit,
 }: {
   request: MaintenanceRequest
   onUpdate: () => void
-  onEdit: (request: MaintenanceRequest) => void
+  onEdit: () => void
+  canEdit: boolean
 }) {
   const scheduledDate = new Date(request.scheduled_date)
   const isOverdue = isBefore(scheduledDate, new Date()) && request.status !== "completed"
@@ -347,9 +378,16 @@ function KanbanCard({
             </Tooltip>
           )}
         </div>
-        <Button variant="ghost" size="icon-sm" className="size-6 -mr-2 opacity-0 group-hover:opacity-100">
-          <MoreHorizontalIcon className="size-3.5" />
-        </Button>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canEdit && (
+            <Button variant="ghost" size="icon-sm" className="size-6" onClick={onEdit}>
+              <PencilIcon className="size-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" className="size-6 -mr-2">
+            <MoreHorizontalIcon className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
       <h4 className="font-semibold text-sm mb-1 leading-snug line-clamp-2">{request.description}</h4>
