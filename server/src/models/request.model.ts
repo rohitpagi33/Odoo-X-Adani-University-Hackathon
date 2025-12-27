@@ -1,7 +1,8 @@
 import { supabaseAdmin } from '../config/supabase';
 
 export type RequestType = "Corrective" | "Preventive";
-export type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled";
+// Status flow: pending -> in_progress -> completed | cancelled. "delayed" is set automatically when overdue while pending.
+export type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled" | "delayed";
 
 export interface MaintenanceRequest {
   id: string;
@@ -17,6 +18,10 @@ export interface MaintenanceRequest {
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  report_url?: string;
+  work_notes?: string;
+  status_changed_by?: string;
+  status_changed_at?: string;
 }
 
 // Database operations

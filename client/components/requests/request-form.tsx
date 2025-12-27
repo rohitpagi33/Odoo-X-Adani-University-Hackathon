@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { getRole } from "@/lib/auth"
 
 interface Technician {
   id: string
@@ -35,6 +36,8 @@ interface RequestFormProps {
 
 export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
   const { toast } = useToast()
+  const role = React.useMemo(() => getRole(), [])
+  const isTechnician = role === "technician"
   const [saving, setSaving] = React.useState(false)
   const [description, setDescription] = React.useState("")
   const [priority, setPriority] = React.useState("medium")
@@ -109,6 +112,12 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
     e.preventDefault()
     setSaving(true)
     try {
+      if (isTechnician) {
+        toast({ description: "Technicians cannot create requests", variant: "destructive" })
+        setSaving(false)
+        return
+      }
+
       if (!description || !selectedEquipment || !team) {
         toast({ description: "Please fill required fields", variant: "destructive" })
         setSaving(false)
@@ -161,6 +170,12 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
 
   return (
     <form className="grid gap-4 py-4" onSubmit={onSubmit}>
+      {isTechnician && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm p-3 rounded-md">
+          Technicians cannot create requests. Please contact a manager or admin.
+        </div>
+      )}
+
       {equipment && (
         <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
           <p className="text-sm font-medium text-blue-900">
@@ -286,7 +301,7 @@ export function RequestForm({ equipment, onSuccess }: RequestFormProps) {
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" type="button" onClick={() => onSuccess?.()}>Cancel</Button>
-        <Button type="submit" disabled={saving}>{saving ? "Creating..." : "Create Request"}</Button>
+        <Button type="submit" disabled={saving || isTechnician}>{saving ? "Creating..." : "Create Request"}</Button>
       </div>
     </form>
   )
