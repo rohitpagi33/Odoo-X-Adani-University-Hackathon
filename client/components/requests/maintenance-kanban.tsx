@@ -21,9 +21,12 @@ interface MaintenanceRequest {
   id: string
   description: string
   equipment_name: string
+  equipment_id: string
   request_type: "maintenance" | "repair" | "inspection"
   status: RequestStatus
   technician_name?: string
+  technician_id?: string
+  maintenance_team_id?: string
   created_at: string
   scheduled_date: string
   duration: string
@@ -293,9 +296,11 @@ export function MaintenanceKanban() {
 function KanbanCard({
   request,
   onUpdate,
+  onEdit,
 }: {
   request: MaintenanceRequest
   onUpdate: () => void
+  onEdit: (request: MaintenanceRequest) => void
 }) {
   const scheduledDate = new Date(request.scheduled_date)
   const isOverdue = isBefore(scheduledDate, new Date()) && request.status !== "completed"

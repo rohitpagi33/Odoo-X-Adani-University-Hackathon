@@ -108,3 +108,37 @@ export const getCalendarRequests = async (req: Request, res: Response): Promise<
     res.status(500).json({ message: 'Error fetching calendar requests', error });
   }
 };
+
+export const getRequestById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const request = await requestService.getRequestById(id);
+    
+    if (!request) {
+      res.status(404).json({ message: 'Request not found' });
+      return;
+    }
+    
+    res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching request', error });
+  }
+};
+
+export const updateRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const request = await requestService.updateRequestDetails(id, updates);
+    
+    if (!request) {
+      res.status(404).json({ message: 'Request not found' });
+      return;
+    }
+    
+    res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating request', error });
+  }
+};

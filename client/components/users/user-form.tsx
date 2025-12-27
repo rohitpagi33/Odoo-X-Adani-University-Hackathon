@@ -7,7 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
 
-export function UserForm() {
+type User = {
+  id: string
+  email: string
+  full_name: string
+  role: 'admin' | 'manager' | 'technician'
+  created_at?: string
+}
+
+interface UserFormProps {
+  user?: User | null
+  onSuccess?: () => void
+}
+
+export function UserForm({ user, onSuccess }: UserFormProps) {
   const { toast } = useToast()
   const [fullName, setFullName] = React.useState('')
   const [email, setEmail] = React.useState('')
@@ -15,27 +28,65 @@ export function UserForm() {
   const [role, setRole] = React.useState<'admin' | 'manager' | 'technician' | ''>('')
   const [saving, setSaving] = React.useState(false)
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!fullName || !email || !password || !role) {
-      toast({ description: 'Please fill all fields', variant: 'destructive' })
-      return
-    }
-    setSaving(true)
-    try {
-      const res = await api.post<any>('/auth/register', {
-        email,
-        password,
-        full_name: fullName,
-        role,
-      })
-      toast({ description: 'User created successfully' })
+  // Load initial values when editing
+  React.useEffect(() => {
+    if (user) {
+      setFullName(user.full_name || '')
+      setEmail(user.email || '')
+      setRole(user.role as 'admin' | 'manager' | 'technician')
+      setPassword('') // Don't load password
+    } else {
       setFullName('')
       setEmail('')
-      setPassword('')
       setRole('')
+      setPassword('')
+    }
+  }, [user?.id])
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullName || !email || !role) {
+      toast({ description: 'Please fill all required fields', variant: 'destructive' })
+      return
+    }
+
+    // For create, password is required
+    if (!user && !password) {
+      toast({ description: 'Password is required for new users', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      if (user) {
+        // Update existing user
+        await api.patch(`/auth/users/${user.id}`, {
+          email,
+          full_name: fullName,
+          role,
+        })
+        toast({ description: 'User updated successfully' })
+      } else {
+        // Create new user
+        await api.post<any>('/auth/register', {
+          email,
+          password,
+          full_name: fullName,
+          role,
+        })
+        toast({ description: 'User created successfully' })
+      }
+
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        setFullName('')
+        setEmail('')
+        setPassword('')
+        setRole('')
+      }
     } catch (err: any) {
-      toast({ description: err?.message || 'Failed to create user', variant: 'destructive' })
+      toast({ description: err?.message || `Failed to ${user ? 'update' : 'create'} user`, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -54,10 +105,12 @@ export function UserForm() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Strong password" />
-        </div>
+        {!user && (
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Strong password" />
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="role">Role</Label>
           <Select value={role} onValueChange={(v) => setRole(v as any)}>
@@ -73,7 +126,9 @@ export function UserForm() {
         </div>
       </div>
       <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={saving}>{saving ? 'Creating...' : 'Create User'}</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? (user ? 'Updating...' : 'Creating...') : (user ? 'Update User' : 'Create User')}
+        </Button>
       </div>
     </form>
   )

@@ -19,4 +19,10 @@ router.get('/', teamController.getAllTeams);
 // POST /api/teams - Only Admin and Manager can create
 router.post('/', isAdminOrManager, teamController.createTeam);
 
+// PATCH /api/teams/:id - Only Admin and Manager can update
+router.patch('/:id', isAdminOrManager, teamController.updateTeam);
+
+// GET /api/teams/:id - Get specific team
+router.get('/:id', teamController.getTeamById);
+
 export default router;

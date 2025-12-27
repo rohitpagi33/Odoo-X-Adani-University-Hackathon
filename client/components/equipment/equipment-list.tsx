@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import { api } from "@/lib/api"
-import { PlusIcon, SearchIcon, FilterIcon, MoreVerticalIcon, WrenchIcon } from "lucide-react"
+import { PlusIcon, SearchIcon, FilterIcon, MoreVerticalIcon, WrenchIcon, PencilIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,9 @@ type Equipment = {
   location: string
   maintenance_team_id?: string
   is_scrapped: boolean
+  purchase_date?: string
+  warranty_expiry?: string
+  default_technician_id?: string
 }
 
 type Team = {
@@ -35,30 +38,28 @@ export function EquipmentList() {
   const [error, setError] = React.useState<string>("")
   const [selectedEquipment, setSelectedEquipment] = React.useState<Equipment | null>(null)
   const [showRequestDialog, setShowRequestDialog] = React.useState(false)
+  const [editEquipment, setEditEquipment] = React.useState<Equipment | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false)
 
-  React.useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        setLoading(true)
-        const [equipmentData, teamsData] = await Promise.all([
-          api.get<Equipment[]>("/equipment"),
-          api.get<Team[]>("/teams"),
-        ])
-        if (mounted) {
-          setItems(equipmentData)
-          setTeams(teamsData)
-        }
-      } catch (err: any) {
-        if (mounted) setError(err?.message || "Failed to load equipment")
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    })()
-    return () => {
-      mounted = false
+  const fetchEquipment = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const [equipmentData, teamsData] = await Promise.all([
+        api.get<Equipment[]>("/equipment"),
+        api.get<Team[]>("/teams"),
+      ])
+      setItems(equipmentData)
+      setTeams(teamsData)
+    } catch (err: any) {
+      setError(err?.message || "Failed to load equipment")
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  React.useEffect(() => {
+    fetchEquipment()
+  }, [fetchEquipment])
 
   const getTeamName = (teamId?: string) => {
     if (!teamId) return "—"
@@ -80,6 +81,17 @@ export function EquipmentList() {
   const handleRequestSuccess = () => {
     setShowRequestDialog(false)
     setSelectedEquipment(null)
+  }
+
+  const handleEdit = (equipment: Equipment) => {
+    setEditEquipment(equipment)
+    setEditDialogOpen(true)
+  }
+
+  const handleEditSuccess = () => {
+    setEditDialogOpen(false)
+    setEditEquipment(null)
+    fetchEquipment()
   }
 
   return (
@@ -172,8 +184,13 @@ export function EquipmentList() {
                       <WrenchIcon className="size-3.5 text-primary" />
                       <span>Requests</span>
                     </Button>
-                    <Button variant="ghost" size="icon-sm">
-                      <MoreVerticalIcon className="size-4 text-muted-foreground" />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-8 w-8"
+                      onClick={() => handleEdit(item)}
+                    >
+                      <PencilIcon className="size-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -195,6 +212,15 @@ export function EquipmentList() {
               onSuccess={handleRequestSuccess}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl" suppressHydrationWarning>
+          <DialogHeader>
+            <DialogTitle>Edit Equipment</DialogTitle>
+          </DialogHeader>
+          <EquipmentForm equipment={editEquipment} onSuccess={handleEditSuccess} />
         </DialogContent>
       </Dialog>
     </div>

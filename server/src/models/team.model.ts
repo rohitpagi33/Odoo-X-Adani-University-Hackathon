@@ -187,3 +187,34 @@ export const getAllManagers = async (): Promise<Technician[]> => {
   return data || [];
 };
 
+// Update team
+export const updateTeam = async (id: string, updates: Partial<MaintenanceTeam>): Promise<MaintenanceTeam | null> => {
+  const { data, error } = await supabaseAdmin
+    .from('maintenance_teams')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating team:', error);
+    return null;
+  }
+
+  return data;
+};
+
+// Remove all team members (for updating team members)
+export const removeTeamMembers = async (teamId: string): Promise<boolean> => {
+  const { error } = await supabaseAdmin
+    .from('team_members')
+    .delete()
+    .eq('team_id', teamId);
+
+  if (error) {
+    console.error('Error removing team members:', error);
+    return false;
+  }
+
+  return true;
+};

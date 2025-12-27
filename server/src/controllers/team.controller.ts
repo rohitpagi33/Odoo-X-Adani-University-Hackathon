@@ -65,3 +65,56 @@ export const getManagersController = async (req: Request, res: Response): Promis
     res.status(500).json({ message: 'Error fetching managers', error });
   }
 };
+
+export const getTeamById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { findTeamById } = await import('../models/team.model');
+    const team = await findTeamById(id);
+    
+    if (!team) {
+      res.status(404).json({ message: 'Team not found' });
+      return;
+    }
+    
+    res.status(200).json(team);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching team', error });
+  }
+};
+
+export const updateTeam = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, description, manager_id, members } = req.body;
+    
+    const { updateTeam: updateTeamModel, removeTeamMembers, addTeamMember } = await import('../models/team.model');
+    
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (manager_id !== undefined) updates.manager_id = manager_id;
+    
+    const team = await updateTeamModel(id, updates);
+    
+    if (!team) {
+      res.status(404).json({ message: 'Team not found' });
+      return;
+    }
+    
+    // Update team members if provided
+    if (members && Array.isArray(members)) {
+      // Remove all existing members
+      await removeTeamMembers(id);
+      
+      // Add new members
+      for (const memberId of members) {
+        await addTeamMember(id, memberId, req.user?.id);
+      }
+    }
+    
+    res.status(200).json(team);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating team', error });
+  }
+};

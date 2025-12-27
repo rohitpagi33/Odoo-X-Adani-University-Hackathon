@@ -24,7 +24,24 @@ interface Technician {
   full_name: string
 }
 
-export function EquipmentForm() {
+interface Equipment {
+  id: string
+  name: string
+  serial_number: string
+  location: string
+  department: string
+  purchase_date?: string
+  warranty_expiry?: string
+  maintenance_team_id?: string
+  default_technician_id?: string
+}
+
+interface EquipmentFormProps {
+  equipment?: Equipment | null
+  onSuccess?: () => void
+}
+
+export function EquipmentForm({ equipment, onSuccess }: EquipmentFormProps) {
   const { toast } = useToast()
   const [purchaseDate, setPurchaseDate] = React.useState<Date>()
   const [warrantyDate, setWarrantyDate] = React.useState<Date>()
@@ -41,6 +58,26 @@ export function EquipmentForm() {
   const [technicians, setTechnicians] = React.useState<Technician[]>([])
   const [loadingTeams, setLoadingTeams] = React.useState(false)
   const [loadingTechnicians, setLoadingTechnicians] = React.useState(false)
+
+  // Load initial values when editing
+  React.useEffect(() => {
+    if (equipment) {
+      setName(equipment.name || "")
+      setSerial(equipment.serial_number || "")
+      setLocation(equipment.location || "")
+      setDepartment(equipment.department || "")
+      setTeam(equipment.maintenance_team_id || "")
+      setTechnician(equipment.default_technician_id || "")
+      if (equipment.purchase_date) {
+        setPurchaseDate(new Date(equipment.purchase_date))
+      }
+      if (equipment.warranty_expiry) {
+        setWarrantyDate(new Date(equipment.warranty_expiry))
+      }
+    }
+  }, [equipment])
+
+
 
   // Fetch teams from database
   React.useEffect(() => {
@@ -101,17 +138,30 @@ export function EquipmentForm() {
         maintenance_team_id: team,
         default_technician_id: technician || undefined,
       }
-      const created = await api.post<any>("/equipment", body)
-      toast({ description: "Equipment created successfully" })
-      // Reset form
-      setName("")
-      setSerial("")
-      setLocation("")
-      setDepartment("")
-      setTeam("")
-      setTechnician("")
-      setPurchaseDate(undefined)
-      setWarrantyDate(undefined)
+      
+      if (equipment) {
+        // Update existing equipment
+        await api.patch(`/equipment/${equipment.id}`, body)
+        toast({ description: "Equipment updated successfully" })
+      } else {
+        // Create new equipment
+        await api.post<any>("/equipment", body)
+        toast({ description: "Equipment created successfully" })
+      }
+      
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        // Reset form only when creating new
+        setName("")
+        setSerial("")
+        setLocation("")
+        setDepartment("")
+        setTeam("")
+        setTechnician("")
+        setPurchaseDate(undefined)
+        setWarrantyDate(undefined)
+      }
     } catch (err: any) {
       toast({ description: err?.message || "Failed to save", variant: "destructive" })
     } finally {
@@ -220,7 +270,7 @@ export function EquipmentForm() {
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" type="button">Cancel</Button>
-        <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Equipment"}</Button>
+        <Button type="submit" disabled={saving}>{saving ? (equipment ? "Updating..." : "Saving...") : (equipment ? "Update Equipment" : "Save Equipment")}</Button>
       </div>
     </form>
   )

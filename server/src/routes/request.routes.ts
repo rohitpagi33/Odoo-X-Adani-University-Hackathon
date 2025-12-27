@@ -22,4 +22,10 @@ router.patch('/:id/status', authorize('admin', 'manager', 'technician'), request
 // PATCH /api/requests/:id/assign - Only Admin and Manager can assign
 router.patch('/:id/assign', isAdminOrManager, requestController.assignRequestTechnician);
 
+// PATCH /api/requests/:id - Only Admin and Manager can update request details
+router.patch('/:id', isAdminOrManager, requestController.updateRequest);
+
+// GET /api/requests/:id - Get specific request
+router.get('/:id', requestController.getRequestById);
+
 export default router;

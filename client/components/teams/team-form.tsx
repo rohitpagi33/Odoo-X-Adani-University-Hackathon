@@ -14,7 +14,20 @@ type Technician = {
   email: string
 }
 
-export function TeamForm() {
+type Team = {
+  id: string
+  name: string
+  description?: string
+  manager_id?: string
+  members?: Array<{ id: string }>
+}
+
+interface TeamFormProps {
+  team?: Team | null
+  onSuccess?: () => void
+}
+
+export function TeamForm({ team, onSuccess }: TeamFormProps) {
   const { toast } = useToast()
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
@@ -25,6 +38,22 @@ export function TeamForm() {
   const [saving, setSaving] = React.useState(false)
   const [loadingTech, setLoadingTech] = React.useState(true)
   const [loadingMgr, setLoadingMgr] = React.useState(true)
+
+  // Load initial values when editing
+  React.useEffect(() => {
+    if (team) {
+      setName(team.name || '')
+      setDescription(team.description || '')
+      setManagerId(team.manager_id || '')
+      
+      // Pre-select team members
+      const memberIds: Record<string, boolean> = {}
+      team.members?.forEach(m => {
+        memberIds[m.id] = true
+      })
+      setSelected(memberIds)
+    }
+  }, [team])
 
   React.useEffect(() => {
     let mounted = true
@@ -71,19 +100,33 @@ export function TeamForm() {
     setSaving(true)
     try {
       const members = Object.keys(selected).filter((id) => selected[id])
-      const res = await api.post<any>('/teams', {
+      const payload = {
         name,
         description: description || undefined,
         manager_id: managerId || undefined,
         members,
-      })
-      toast({ description: 'Team created successfully' })
-      setName('')
-      setDescription('')
-      setManagerId('')
-      setSelected({})
+      }
+      
+      if (team) {
+        // Update existing team
+        await api.patch(`/teams/${team.id}`, payload)
+        toast({ description: 'Team updated successfully' })
+      } else {
+        // Create new team
+        await api.post('/teams', payload)
+        toast({ description: 'Team created successfully' })
+      }
+      
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        setName('')
+        setDescription('')
+        setManagerId('')
+        setSelected({})
+      }
     } catch (err: any) {
-      toast({ description: err?.message || 'Failed to create team', variant: 'destructive' })
+      toast({ description: err?.message || `Failed to ${team ? 'update' : 'create'} team`, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -147,7 +190,9 @@ export function TeamForm() {
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={saving}>{saving ? 'Creating...' : 'Create Team'}</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? (team ? 'Updating...' : 'Creating...') : (team ? 'Update Team' : 'Create Team')}
+        </Button>
       </div>
     </form>
   )

@@ -215,3 +215,15 @@ export const getOverdueRequests = async (): Promise<MaintenanceRequest[]> => {
   });
 };
 
+export const getRequestById = async (id: string): Promise<MaintenanceRequest | null> => {
+  return await findRequestById(id);
+};
+
+export const updateRequestDetails = async (id: string, updates: Partial<MaintenanceRequest>): Promise<MaintenanceRequest | null> => {
+  // If duration is being updated, ensure it's in interval format
+  if (updates.duration) {
+    updates.duration = ensureDurationInterval(updates.duration);
+  }
+  
+  return await updateRequestModel(id, updates);
+};
