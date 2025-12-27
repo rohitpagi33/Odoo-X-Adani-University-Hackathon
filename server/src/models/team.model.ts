@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase';
 
 export interface Technician {
   id: string;
@@ -28,13 +28,13 @@ export interface TeamMember {
 
 // Database operations for teams
 export const findTeamById = async (id: string): Promise<MaintenanceTeam | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_teams')
     .select(`
       *,
       team_members (
         user_id,
-        users (
+        users:users!team_members_user_id_fkey (
           id,
           email,
           full_name,
@@ -61,7 +61,7 @@ export const findTeamById = async (id: string): Promise<MaintenanceTeam | null> 
 };
 
 export const addTeam = async (team: Omit<MaintenanceTeam, 'id' | 'created_at' | 'updated_at'>): Promise<MaintenanceTeam | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_teams')
     .insert([{
       name: team.name,
@@ -80,13 +80,13 @@ export const addTeam = async (team: Omit<MaintenanceTeam, 'id' | 'created_at' | 
 };
 
 export const getAllTeams = async (): Promise<MaintenanceTeam[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_teams')
     .select(`
       *,
       team_members (
         user_id,
-        users (
+        users:users!team_members_user_id_fkey (
           id,
           email,
           full_name,
@@ -110,7 +110,7 @@ export const getAllTeams = async (): Promise<MaintenanceTeam[]> => {
 };
 
 export const addTeamMember = async (teamId: string, userId: string, addedBy?: string): Promise<TeamMember | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('team_members')
     .insert([{
       team_id: teamId,
@@ -129,7 +129,7 @@ export const addTeamMember = async (teamId: string, userId: string, addedBy?: st
 };
 
 export const removeTeamMember = async (teamId: string, userId: string): Promise<boolean> => {
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('team_members')
     .delete()
     .eq('team_id', teamId)
@@ -145,7 +145,7 @@ export const removeTeamMember = async (teamId: string, userId: string): Promise<
 
 // Get all technicians
 export const getAllTechnicians = async (): Promise<Technician[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('id, email, full_name, avatar_url, role')
     .eq('role', 'technician')

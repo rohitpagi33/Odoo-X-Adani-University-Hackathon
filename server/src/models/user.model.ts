@@ -1,9 +1,12 @@
-import { supabase, supabaseAdmin } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase';
 import { User, LoginCredentials, RegisterData } from '../types/auth.types';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 
 // User database operations
 export const findUserById = async (id: string): Promise<User | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('id', id)
@@ -18,7 +21,7 @@ export const findUserById = async (id: string): Promise<User | null> => {
 };
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('email', email)
@@ -33,7 +36,7 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .order('created_at', { ascending: false });
@@ -47,7 +50,7 @@ export const getAllUsers = async (): Promise<User[]> => {
 };
 
 export const getUsersByRole = async (role: 'admin' | 'manager' | 'technician'): Promise<User[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('role', role)
@@ -63,45 +66,35 @@ export const getUsersByRole = async (role: 'admin' | 'manager' | 'technician'): 
 
 export const createUser = async (userData: RegisterData, createdBy?: string): Promise<User | null> => {
   try {
-    // Create auth user using admin client
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const hashed = await bcrypt.hash(userData.password, 10)
+    const newUser: Omit<User, 'created_at' | 'updated_at'> & { password: string } = {
+      id: uuidv4(),
       email: userData.email,
-      password: userData.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: userData.full_name,
-        role: userData.role
-      }
-    });
-
-    if (authError || !authData.user) {
-      console.error('Error creating auth user:', authError);
-      return null;
+      full_name: userData.full_name,
+      role: userData.role,
+      avatar_url: undefined,
+      created_by: createdBy,
+      password: hashed,
     }
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .insert([newUser])
+      .select('id, email, full_name, role, avatar_url, created_by, created_at, updated_at')
+      .single()
 
-    // Update user profile with created_by
-    if (createdBy) {
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ created_by: createdBy })
-        .eq('id', authData.user.id);
-
-      if (updateError) {
-        console.error('Error updating user profile:', updateError);
-      }
+    if (error) {
+      console.error('Error creating user:', error)
+      return null
     }
-
-    // Fetch the created user profile
-    const user = await findUserById(authData.user.id);
-    return user;
+    return data as User
   } catch (error) {
-    console.error('Error in createUser:', error);
-    return null;
+    console.error('Error in createUser:', error)
+    return null
   }
 };
 
 export const updateUser = async (id: string, updates: Partial<User>): Promise<User | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .update(updates)
     .eq('id', id)
@@ -118,63 +111,64 @@ export const updateUser = async (id: string, updates: Partial<User>): Promise<Us
 
 export const deleteUser = async (id: string): Promise<boolean> => {
   try {
-    // Delete from auth.users (will cascade to public.users)
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    const { error } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', id)
 
     if (error) {
-      console.error('Error deleting user:', error);
-      return false;
+      console.error('Error deleting user:', error)
+      return false
     }
-
-    return true;
+    return true
   } catch (error) {
-    console.error('Error in deleteUser:', error);
-    return false;
+    console.error('Error in deleteUser:', error)
+    return false
   }
 };
 
 // Authentication operations
 export const loginUser = async (credentials: LoginCredentials): Promise<{ user: User; token: string } | null> => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password
-    });
+    // Fetch user with password
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id, email, full_name, role, avatar_url, created_by, created_at, updated_at, password')
+      .eq('email', credentials.email)
+      .single()
 
-    if (error || !data.user || !data.session) {
-      console.error('Login error:', error);
-      return null;
+    if (error || !data) {
+      return null
+    }
+    const valid = await bcrypt.compare(credentials.password, data.password)
+    if (!valid) {
+      return null
     }
 
-    // Fetch user profile
-    const userProfile = await findUserById(data.user.id);
-    
-    if (!userProfile) {
-      return null;
+    const user: User = {
+      id: data.id,
+      email: data.email,
+      full_name: data.full_name,
+      role: data.role,
+      avatar_url: data.avatar_url || undefined,
+      created_by: data.created_by || undefined,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
     }
 
-    return {
-      user: userProfile,
-      token: data.session.access_token
-    };
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+      throw new Error('JWT_SECRET is not configured')
+    }
+    const token = jwt.sign({ sub: user.id, role: user.role }, secret, { expiresIn: '12h' })
+    return { user, token }
   } catch (error) {
-    console.error('Error in loginUser:', error);
-    return null;
+    console.error('Error in loginUser:', error)
+    return null
   }
 };
 
-export const logoutUser = async (token: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('Logout error:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in logoutUser:', error);
-    return false;
-  }
+export const logoutUser = async (_token: string): Promise<boolean> => {
+  // Stateless JWT logout handled client-side; nothing to do server-side
+  return true
 };

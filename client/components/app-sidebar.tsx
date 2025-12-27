@@ -50,6 +50,16 @@ const navItems = [
     url: "/reports",
     icon: BarChart3Icon,
   },
+  {
+    title: "Teams",
+    url: "/teams",
+    icon: WrenchIcon,
+  },
+  {
+    title: "Members",
+    url: "/users",
+    icon: UserIcon,
+  },
 ]
 
 export function AppSidebar() {

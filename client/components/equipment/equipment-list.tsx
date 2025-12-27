@@ -1,5 +1,6 @@
 "use client"
 import * as React from "react"
+import { api } from "@/lib/api"
 import { PlusIcon, SearchIcon, FilterIcon, MoreVerticalIcon, WrenchIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,50 +10,45 @@ import { Badge } from "@/components/ui/badge"
 import { EquipmentForm } from "@/components/equipment/equipment-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
-// Static data as per prompt requirements for initial setup
-const equipmentData = [
-  {
-    id: "EQ-001",
-    name: "HVAC Unit - Main Hall",
-    serialNumber: "HVAC-99281-X",
-    department: "Facilities",
-    employee: "Michael Scott",
-    location: "Floor 1, Block A",
-    team: "Climate Control",
-    status: "Operational",
-    openRequests: 0,
-  },
-  {
-    id: "EQ-002",
-    name: "CNC Milling Machine",
-    serialNumber: "CNC-7712-B",
-    department: "Manufacturing",
-    employee: "Dwight Schrute",
-    location: "Factory Floor, Line 3",
-    team: "Production Tech",
-    status: "Breakdown",
-    openRequests: 2,
-  },
-  {
-    id: "EQ-003",
-    name: "Backup Generator",
-    serialNumber: "GEN-5541-G",
-    department: "Operations",
-    employee: "Jim Halpert",
-    location: "Roof Deck",
-    team: "Electrical",
-    status: "Operational",
-    openRequests: 1,
-  },
-]
+type Equipment = {
+  id: string
+  name: string
+  serial_number: string
+  department: string
+  assigned_employee?: string
+  location: string
+  maintenance_team_id?: string
+  is_scrapped: boolean
+}
 
 export function EquipmentList() {
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [items, setItems] = React.useState<Equipment[]>([])
+  const [loading, setLoading] = React.useState<boolean>(true)
+  const [error, setError] = React.useState<string>("")
 
-  const filteredEquipment = equipmentData.filter(
+  React.useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const data = await api.get<Equipment[]>("/equipment")
+        if (mounted) setItems(data)
+      } catch (err: any) {
+        if (mounted) setError(err?.message || "Failed to load equipment")
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const filteredEquipment = items.filter(
     (item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()),
+      (item.serial_number || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   return (
@@ -90,6 +86,9 @@ export function EquipmentList() {
       </div>
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        {error && (
+          <div className="p-3 text-sm text-rose-600">{error}</div>
+        )}
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
@@ -98,12 +97,24 @@ export function EquipmentList() {
               <TableHead>Department</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Assigned Team</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredEquipment.map((item) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  Loading equipment...
+                </TableCell>
+              </TableRow>
+            ) : filteredEquipment.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  No equipment found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredEquipment.map((item) => (
               <TableRow key={item.id} className="group transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex flex-col">
@@ -111,23 +122,12 @@ export function EquipmentList() {
                     <span className="text-xs text-muted-foreground font-normal">{item.id}</span>
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>
+                <TableCell className="font-mono text-xs">{item.serial_number}</TableCell>
                 <TableCell>{item.department}</TableCell>
                 <TableCell className="text-muted-foreground">{item.location}</TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">
-                    {item.team}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    className={
-                      item.status === "Breakdown"
-                        ? "bg-rose-500/10 text-rose-600 border-rose-200"
-                        : "bg-emerald-500/10 text-emerald-600 border-emerald-200"
-                    }
-                  >
-                    {item.status}
+                    {item.maintenance_team_id ? item.maintenance_team_id : "—"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -135,11 +135,6 @@ export function EquipmentList() {
                     <Button variant="ghost" size="sm" className="gap-2 relative h-8 px-3">
                       <WrenchIcon className="size-3.5 text-primary" />
                       <span>Requests</span>
-                      {item.openRequests > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-background">
-                          {item.openRequests}
-                        </span>
-                      )}
                     </Button>
                     <Button variant="ghost" size="icon-sm">
                       <MoreVerticalIcon className="size-4 text-muted-foreground" />
@@ -147,7 +142,8 @@ export function EquipmentList() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )))
+            }
           </TableBody>
         </Table>
       </div>

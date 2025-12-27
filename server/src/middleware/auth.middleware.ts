@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../config/supabase';
+import jwt from 'jsonwebtoken';
+import { supabaseAdmin } from '../config/supabase';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -19,27 +20,37 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({ message: 'No token provided' });
       return;
     }
 
     const token = authHeader.substring(7);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('JWT_SECRET missing');
+      res.status(500).json({ message: 'Server configuration error' });
+      return;
+    }
 
-    // Verify token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch {
       res.status(401).json({ message: 'Invalid or expired token' });
       return;
     }
 
-    // Fetch user role from public.users table
-    const { data: userData, error: userError } = await supabase
+    const userId = decoded?.sub as string;
+    if (!userId) {
+      res.status(401).json({ message: 'Invalid token payload' });
+      return;
+    }
+
+    const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .select('id, email, role, full_name')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (userError || !userData) {
@@ -47,7 +58,6 @@ export const authenticate = async (
       return;
     }
 
-    // Attach user info to request
     req.user = {
       id: userData.id,
       email: userData.email,

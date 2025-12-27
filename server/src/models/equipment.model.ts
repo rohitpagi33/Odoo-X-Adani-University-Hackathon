@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase';
 
 export interface Equipment {
   id: string;
@@ -19,7 +19,7 @@ export interface Equipment {
 
 // Database operations
 export const findEquipmentById = async (id: string): Promise<Equipment | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('equipment')
     .select('*')
     .eq('id', id)
@@ -34,7 +34,7 @@ export const findEquipmentById = async (id: string): Promise<Equipment | null> =
 };
 
 export const addEquipment = async (equipment: Omit<Equipment, 'id' | 'created_at' | 'updated_at'>): Promise<Equipment | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('equipment')
     .insert([equipment])
     .select()
@@ -49,7 +49,7 @@ export const addEquipment = async (equipment: Omit<Equipment, 'id' | 'created_at
 };
 
 export const updateEquipment = async (id: string, updates: Partial<Equipment>): Promise<Equipment | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('equipment')
     .update(updates)
     .eq('id', id)
@@ -65,7 +65,7 @@ export const updateEquipment = async (id: string, updates: Partial<Equipment>): 
 };
 
 export const getAllEquipments = async (): Promise<Equipment[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('equipment')
     .select('*')
     .order('created_at', { ascending: false });
@@ -79,7 +79,7 @@ export const getAllEquipments = async (): Promise<Equipment[]> => {
 };
 
 export const deleteEquipment = async (id: string): Promise<boolean> => {
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('equipment')
     .delete()
     .eq('id', id);
