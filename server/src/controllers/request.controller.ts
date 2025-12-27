@@ -41,12 +41,25 @@ export const createRequest = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-export const updateRequestStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateRequestStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    
-    const request = await requestService.updateRequestStatus(id, status);
+    const { status, work_notes, report_url, report_base64, report_filename } = req.body;
+
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    const request = await requestService.updateRequestStatus(id, {
+      status,
+      work_notes,
+      report_url,
+      report_base64,
+      report_filename,
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
     
     if (!request) {
       res.status(404).json({ message: 'Request not found' });

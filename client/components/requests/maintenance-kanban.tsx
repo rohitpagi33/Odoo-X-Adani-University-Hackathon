@@ -1,11 +1,11 @@
 "use client"
 import * as React from "react"
-import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon } from "lucide-react"
-import { format, isBefore, startOfToday } from "date-fns"
+import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon, FileIcon, SendIcon } from "lucide-react"
+import { format, isBefore } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { RequestForm } from "@/components/requests/request-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -13,8 +13,9 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { getRole } from "@/lib/auth"
 
-type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled"
+type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled" | "delayed"
 
 interface MaintenanceRequest {
   id: string
@@ -34,15 +35,37 @@ const DISPLAY_STATUS: Record<RequestStatus, string> = {
   "in_progress": "In Progress",
   "completed": "Repaired",
   "cancelled": "Cancelled",
+  "delayed": "Delayed",
 }
 
-const COLUMNS: RequestStatus[] = ["pending", "in_progress", "completed", "cancelled"]
+const COLUMNS: RequestStatus[] = ["pending", "delayed", "in_progress", "completed", "cancelled"]
 
 export function MaintenanceKanban() {
   const { toast } = useToast()
   const [requests, setRequests] = React.useState<MaintenanceRequest[]>([])
   const [loading, setLoading] = React.useState(true)
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [statusDialogOpen, setStatusDialogOpen] = React.useState(false)
+  const [selectedRequest, setSelectedRequest] = React.useState<MaintenanceRequest | null>(null)
+  const [targetStatus, setTargetStatus] = React.useState<RequestStatus | null>(null)
+  const [statusNotes, setStatusNotes] = React.useState("")
+  const [statusFile, setStatusFile] = React.useState<{ base64: string; name: string } | null>(null)
+  const [statusSaving, setStatusSaving] = React.useState(false)
+  const role = React.useMemo(() => getRole(), [])
+  const isTechnician = role === "technician"
+
+  const allowedTransitions = React.useCallback((status: RequestStatus): RequestStatus[] => {
+    switch (status) {
+      case "pending":
+        return ["in_progress", "cancelled", "delayed"]
+      case "delayed":
+        return ["in_progress", "cancelled"]
+      case "in_progress":
+        return ["completed", "cancelled"]
+      default:
+        return []
+    }
+  }, [])
 
   const fetchRequests = React.useCallback(async () => {
     try {
@@ -68,17 +91,57 @@ export function MaintenanceKanban() {
     setTimeout(() => fetchRequests(), 500)
   }
 
-  const onDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData("requestId", id)
+  const openStatusDialog = (request: MaintenanceRequest, next?: RequestStatus) => {
+    setSelectedRequest(request)
+    setTargetStatus(next || null)
+    setStatusNotes("")
+    setStatusFile(null)
+    setStatusDialogOpen(true)
   }
 
-  const onDrop = (e: React.DragEvent, status: RequestStatus) => {
-    const id = e.dataTransfer.getData("requestId")
-    setRequests((prev) => prev.map((req) => (req.id === id ? { ...req, status } : req)))
+  const handleFileChange = (file?: File | null) => {
+    if (!file) {
+      setStatusFile(null)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      setStatusFile({ base64: result, name: file.name })
+    }
+    reader.readAsDataURL(file)
   }
 
-  const onDragOver = (e: React.DragEvent) => {
+  const submitStatusChange = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedRequest || !targetStatus) return
+    const requiresReport = targetStatus === "completed" || targetStatus === "cancelled"
+    if (requiresReport && (!statusNotes || !statusFile)) {
+      toast({ description: "Notes and PDF report are required", variant: "destructive" })
+      return
+    }
+
+    try {
+      setStatusSaving(true)
+      await api.patch(`/requests/${selectedRequest.id}/status`, {
+        status: targetStatus,
+        work_notes: statusNotes,
+        report_base64: statusFile?.base64,
+        report_filename: statusFile?.name,
+      })
+      toast({ description: "Status updated" })
+      setStatusDialogOpen(false)
+      setSelectedRequest(null)
+      setTargetStatus(null)
+      setStatusFile(null)
+      setStatusNotes("")
+      fetchRequests()
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to update status"
+      toast({ description: msg, variant: "destructive" })
+    } finally {
+      setStatusSaving(false)
+    }
   }
 
   return (
@@ -105,20 +168,22 @@ export function MaintenanceKanban() {
               <FilterIcon className="size-4" />
               Group By Team
             </Button>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <PlusIcon className="size-4" />
-                  New Request
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create Maintenance Request</DialogTitle>
-                </DialogHeader>
-                <RequestForm onSuccess={handleRequestSuccess} />
-              </DialogContent>
-            </Dialog>
+            {!isTechnician && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-2">
+                    <PlusIcon className="size-4" />
+                    New Request
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create Maintenance Request</DialogTitle>
+                  </DialogHeader>
+                  <RequestForm onSuccess={handleRequestSuccess} />
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
 
@@ -128,8 +193,6 @@ export function MaintenanceKanban() {
               <div
                 key={status}
                 className="flex flex-col w-80 shrink-0 group"
-                onDragOver={onDragOver}
-                onDrop={(e) => onDrop(e, status)}
               >
                 <div className="flex items-center justify-between mb-4 px-2">
                   <div className="flex items-center gap-2">
@@ -154,11 +217,11 @@ export function MaintenanceKanban() {
                   {requests
                     .filter((req) => req.status === status)
                     .map((req) => (
-                      <KanbanCard key={req.id} request={req} onDragStart={onDragStart} />
+                      <KanbanCard key={req.id} request={req} onUpdate={() => openStatusDialog(req)} />
                     ))}
                   {requests.filter((req) => req.status === status).length === 0 && (
                     <div className="h-24 border-2 border-dashed border-muted flex items-center justify-center rounded-xl text-xs text-muted-foreground/60 italic">
-                      Drop items here
+                      No requests
                     </div>
                   )}
                 </div>
@@ -167,6 +230,61 @@ export function MaintenanceKanban() {
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
+
+        <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Update Status</DialogTitle>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={submitStatusChange}>
+              <div className="text-sm text-muted-foreground">
+                {selectedRequest?.description}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">New Status</label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={targetStatus || ''}
+                  onChange={(e) => setTargetStatus(e.target.value as RequestStatus)}
+                >
+                  <option value="" disabled>Select status</option>
+                  {selectedRequest && allowedTransitions(selectedRequest.status).map((s) => (
+                    <option key={s} value={s}>{DISPLAY_STATUS[s]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Notes</label>
+                <textarea
+                  className="w-full rounded-md border px-3 py-2 text-sm min-h-[80px]"
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="What was done / findings / issues"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2"><FileIcon className="size-4" /> PDF Report</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => handleFileChange(e.target.files?.[0])}
+                />
+                {statusFile && <p className="text-xs text-muted-foreground">{statusFile.name}</p>}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={!targetStatus || statusSaving} className="gap-2">
+                  {statusSaving ? "Updating..." : "Update"}
+                  <SendIcon className="size-4" />
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )
@@ -174,10 +292,10 @@ export function MaintenanceKanban() {
 
 function KanbanCard({
   request,
-  onDragStart,
+  onUpdate,
 }: {
   request: MaintenanceRequest
-  onDragStart: (e: React.DragEvent, id: string) => void
+  onUpdate: () => void
 }) {
   const scheduledDate = new Date(request.scheduled_date)
   const isOverdue = isBefore(scheduledDate, new Date()) && request.status !== "completed"
@@ -196,10 +314,8 @@ function KanbanCard({
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, request.id)}
       className={cn(
-        "bg-background rounded-xl border p-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 group",
+        "bg-background rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 group",
         request.priority === "high" && "border-rose-200 bg-rose-50/30",
         isOverdue && "border-amber-200 bg-amber-50/30",
       )}
@@ -254,14 +370,19 @@ function KanbanCard({
           </span>
         </div>
 
-        <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-          <ClockIcon className="size-3" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>{format(scheduledDate, "MMM d, h:mm a")}</span>
-            </TooltipTrigger>
-            <TooltipContent>{getDurationHours(request.duration)} duration</TooltipContent>
-          </Tooltip>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+            <ClockIcon className="size-3" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>{format(scheduledDate, "MMM d, h:mm a")}</span>
+              </TooltipTrigger>
+              <TooltipContent>{getDurationHours(request.duration)} duration</TooltipContent>
+            </Tooltip>
+          </div>
+          <Button variant="ghost" size="icon-sm" className="size-6" onClick={onUpdate}>
+            <SendIcon className="size-3.5" />
+          </Button>
         </div>
       </div>
     </div>
