@@ -1,4 +1,4 @@
-import { loginUser, createUser, getAllUsers, getUsersByRole, updateUser as updateUserModel, deleteUser as deleteUserModel } from '../models/user.model';
+import { loginUser, createUser, getAllUsers, getUsersByRole, updateUser as updateUserModel, deleteUser as deleteUserModel, getUserByEmail as getUserByEmailModel } from '../models/user.model';
 import { User, RegisterData, LoginCredentials } from '../types/auth.types';
 
 export const login = async (credentials: LoginCredentials) => {
@@ -21,6 +21,15 @@ export const updateUser = async (id: string, updates: Partial<User>): Promise<Us
   return await updateUserModel(id, updates);
 };
 
+export const updateUserPassword = async (id: string, hashedPassword: string): Promise<User | null> => {
+  // updateUserModel will accept arbitrary fields for the DB update
+  return await updateUserModel(id, { password: hashedPassword } as any);
+};
+
 export const deleteUser = async (id: string): Promise<boolean> => {
   return await deleteUserModel(id);
+};
+
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  return await getUserByEmailModel(email);
 };

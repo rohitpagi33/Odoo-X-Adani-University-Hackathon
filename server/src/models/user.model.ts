@@ -172,3 +172,7 @@ export const logoutUser = async (_token: string): Promise<boolean> => {
   // Stateless JWT logout handled client-side; nothing to do server-side
   return true
 };
+
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  return await findUserByEmail(email);
+};
