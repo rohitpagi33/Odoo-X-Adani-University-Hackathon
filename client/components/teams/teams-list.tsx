@@ -188,9 +188,9 @@ export function TeamsList() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2 pt-1">
                   {team.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
                       {team.description}
                     </p>
                   )}
