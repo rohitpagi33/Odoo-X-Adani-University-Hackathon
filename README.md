@@ -55,6 +55,9 @@ A comprehensive maintenance management platform built during the **Odoo × Adani
 - **Database ORM**: Supabase Client
 - **Environment Management**: dotenv
 
+### Database Schema
+![alt text](image.png)
+
 ---
 
 ## 🚀 Quick Start
