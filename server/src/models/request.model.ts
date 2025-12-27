@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase';
 
 export type RequestType = "Corrective" | "Preventive";
 export type RequestStatus = "pending" | "in_progress" | "completed" | "cancelled";
@@ -21,7 +21,7 @@ export interface MaintenanceRequest {
 
 // Database operations
 export const findRequestById = async (id: string): Promise<MaintenanceRequest | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_requests')
     .select('*')
     .eq('id', id)
@@ -36,7 +36,7 @@ export const findRequestById = async (id: string): Promise<MaintenanceRequest | 
 };
 
 export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at'>): Promise<MaintenanceRequest | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_requests')
     .insert([request])
     .select()
@@ -51,7 +51,7 @@ export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'creat
 };
 
 export const updateRequest = async (id: string, updates: Partial<MaintenanceRequest>): Promise<MaintenanceRequest | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_requests')
     .update(updates)
     .eq('id', id)
@@ -68,17 +68,50 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
 
 export const getAllRequests = async (filters?: { 
   technicianId?: string;
+  managerId?: string;
   status?: RequestStatus;
   role?: string;
 }): Promise<MaintenanceRequest[]> => {
-  let query = supabase
+  let query = supabaseAdmin
     .from('maintenance_requests')
-    .select('*')
+    .select(`
+      *,
+      equipment:equipment_id (
+        id,
+        name,
+        serial_number
+      ),
+      technician:technician_id (
+        id,
+        full_name,
+        email
+      ),
+      team:maintenance_team_id (
+        id,
+        name
+      )
+    `)
     .order('created_at', { ascending: false });
 
   // If technician, only show their assigned requests
   if (filters?.role === 'technician' && filters?.technicianId) {
     query = query.eq('technician_id', filters.technicianId);
+  }
+
+  // If manager, only show requests for teams they manage
+  if (filters?.role === 'manager' && filters?.managerId) {
+    const { data: teams } = await supabaseAdmin
+      .from('maintenance_teams')
+      .select('id')
+      .eq('manager_id', filters.managerId);
+    
+    if (teams && teams.length > 0) {
+      const teamIds = teams.map(t => t.id);
+      query = query.in('maintenance_team_id', teamIds);
+    } else {
+      // Manager has no teams, return empty array
+      return [];
+    }
   }
 
   if (filters?.status) {
@@ -96,7 +129,7 @@ export const getAllRequests = async (filters?: {
 };
 
 export const getRequestsByEquipmentId = async (equipmentId: string): Promise<MaintenanceRequest[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_requests')
     .select('*')
     .eq('equipment_id', equipmentId)
@@ -111,7 +144,7 @@ export const getRequestsByEquipmentId = async (equipmentId: string): Promise<Mai
 };
 
 export const getRequestsByType = async (type: RequestType): Promise<MaintenanceRequest[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('maintenance_requests')
     .select('*')
     .eq('type', type)
@@ -126,7 +159,7 @@ export const getRequestsByType = async (type: RequestType): Promise<MaintenanceR
 };
 
 export const deleteRequest = async (id: string): Promise<boolean> => {
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('maintenance_requests')
     .delete()
     .eq('id', id);

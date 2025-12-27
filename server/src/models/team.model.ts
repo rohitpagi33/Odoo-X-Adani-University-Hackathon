@@ -12,6 +12,12 @@ export interface MaintenanceTeam {
   id: string;
   name: string;
   description?: string;
+  manager_id?: string;
+  manager?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -60,12 +66,13 @@ export const findTeamById = async (id: string): Promise<MaintenanceTeam | null> 
   return team;
 };
 
-export const addTeam = async (team: Omit<MaintenanceTeam, 'id' | 'created_at' | 'updated_at'>): Promise<MaintenanceTeam | null> => {
+export const addTeam = async (team: Omit<MaintenanceTeam, 'id' | 'created_at' | 'updated_at'> & { manager_id?: string }): Promise<MaintenanceTeam | null> => {
   const { data, error } = await supabaseAdmin
     .from('maintenance_teams')
     .insert([{
       name: team.name,
       description: team.description,
+      manager_id: team.manager_id,
       created_by: team.created_by
     }])
     .select()
@@ -84,6 +91,11 @@ export const getAllTeams = async (): Promise<MaintenanceTeam[]> => {
     .from('maintenance_teams')
     .select(`
       *,
+      manager:users!maintenance_teams_manager_id_fkey (
+        id,
+        full_name,
+        email
+      ),
       team_members (
         user_id,
         users:users!team_members_user_id_fkey (
@@ -153,6 +165,22 @@ export const getAllTechnicians = async (): Promise<Technician[]> => {
 
   if (error) {
     console.error('Error fetching technicians:', error);
+    return [];
+  }
+
+  return data || [];
+};
+
+// Get all managers
+export const getAllManagers = async (): Promise<Technician[]> => {
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, email, full_name, avatar_url, role')
+    .eq('role', 'manager')
+    .order('full_name');
+
+  if (error) {
+    console.error('Error fetching managers:', error);
     return [];
   }
 

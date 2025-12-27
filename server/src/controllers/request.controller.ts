@@ -11,6 +11,9 @@ export const getAllRequests = async (req: AuthRequest, res: Response): Promise<v
       if (req.user.role === 'technician') {
         filters.technicianId = req.user.id;
         filters.role = 'technician';
+      } else if (req.user.role === 'manager') {
+        filters.managerId = req.user.id;
+        filters.role = 'manager';
       }
     }
     

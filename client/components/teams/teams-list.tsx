@@ -7,6 +7,12 @@ type Team = {
   id: string
   name: string
   description?: string
+  manager_id?: string
+  manager?: {
+    id: string
+    full_name: string
+    email: string
+  }
   members?: Array<{ id: string; full_name: string; email: string }>
   created_at?: string
 }
@@ -41,6 +47,7 @@ export function TeamsList() {
           <TableRow>
             <TableHead>Team Name</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead>Manager</TableHead>
             <TableHead>Members</TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
@@ -48,21 +55,24 @@ export function TeamsList() {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground">Loading teams...</TableCell>
+              <TableCell colSpan={5} className="text-center text-muted-foreground">Loading teams...</TableCell>
             </TableRow>
           ) : error ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-rose-600">{error}</TableCell>
+              <TableCell colSpan={5} className="text-center text-rose-600">{error}</TableCell>
             </TableRow>
           ) : items.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground">No teams found.</TableCell>
+              <TableCell colSpan={5} className="text-center text-muted-foreground">No teams found.</TableCell>
             </TableRow>
           ) : (
             items.map((t) => (
               <TableRow key={t.id}>
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell className="text-muted-foreground">{t.description || '—'}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {t.manager ? t.manager.full_name : '—'}
+                </TableCell>
                 <TableCell>
                   {(t.members?.length || 0)}
                 </TableCell>

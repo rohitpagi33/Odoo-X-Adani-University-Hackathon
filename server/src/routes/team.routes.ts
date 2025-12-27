@@ -10,6 +10,9 @@ router.use(authenticate);
 // GET /api/teams/technicians - Must be before /:id to avoid param matching
 router.get('/technicians', teamController.getTechniciansController);
 
+// GET /api/teams/managers - Get all managers
+router.get('/managers', teamController.getManagersController);
+
 // GET /api/teams - All authenticated users can view
 router.get('/', teamController.getAllTeams);
 

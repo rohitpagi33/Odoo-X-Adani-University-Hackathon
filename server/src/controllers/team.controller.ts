@@ -13,7 +13,7 @@ export const getAllTeams = async (req: Request, res: Response): Promise<void> =>
 
 export const createTeam = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, description, members } = req.body;
+    const { name, description, members, manager_id } = req.body;
     
     if (!name) {
       res.status(400).json({ message: 'Team name is required' });
@@ -23,6 +23,7 @@ export const createTeam = async (req: AuthRequest, res: Response): Promise<void>
     const teamData = {
       name,
       description,
+      manager_id,
       created_by: req.user?.id
     };
     
@@ -52,5 +53,15 @@ export const getTechniciansController = async (req: Request, res: Response): Pro
     res.status(200).json(technicians);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching technicians', error });
+  }
+};
+
+export const getManagersController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { getAllManagers } = await import('../models/team.model');
+    const managers = await getAllManagers();
+    res.status(200).json(managers);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching managers', error });
   }
 };

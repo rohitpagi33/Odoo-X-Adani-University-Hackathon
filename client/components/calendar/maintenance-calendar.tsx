@@ -20,42 +20,51 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { RequestForm } from "@/components/requests/request-form"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
+import { getUser } from "@/lib/auth"
 
-// Static data for preventive maintenance events
-const events = [
-  {
-    id: "EV-001",
-    date: new Date(2025, 11, 5),
-    equipment: "HVAC Unit - Main Hall",
-    technician: "John Smith",
-    type: "Preventive",
-  },
-  {
-    id: "EV-002",
-    date: new Date(2025, 11, 12),
-    equipment: "Backup Generator",
-    technician: "Sarah Connor",
-    type: "Preventive",
-  },
-  {
-    id: "EV-003",
-    date: new Date(2025, 11, 15),
-    equipment: "CNC Machine 02",
-    technician: "Mike Ross",
-    type: "Preventive",
-  },
-  {
-    id: "EV-004",
-    date: new Date(2025, 11, 22),
-    equipment: "HVAC Unit - Main Hall",
-    technician: "John Smith",
-    type: "Preventive",
-  },
-]
+type MaintenanceRequest = {
+  id: string
+  description: string
+  request_type: string
+  scheduled_date: string
+  status: string
+  equipment?: {
+    name: string
+  }
+  technician?: {
+    full_name: string
+  }
+  team?: {
+    name: string
+  }
+}
 
 export function MaintenanceCalendar() {
-  const [currentDate, setCurrentDate] = React.useState(new Date(2025, 11, 1)) // Set to Dec 2025 for demo
+  const [currentDate, setCurrentDate] = React.useState(new Date())
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(null)
+  const [events, setEvents] = React.useState<MaintenanceRequest[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const user = getUser()
+
+  // Fetch maintenance requests based on user role
+  React.useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const data = await api.get<MaintenanceRequest[]>('/requests')
+        if (mounted) setEvents(data)
+      } catch (err) {
+        console.error('Failed to load calendar events:', err)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
@@ -87,8 +96,13 @@ export function MaintenanceCalendar() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-100 font-normal">
-              Preventive View Only
+              {user?.role === 'technician' ? 'My Tasks' : user?.role === 'manager' ? 'Team Tasks' : 'All Tasks'}
             </Badge>
+            {loading && (
+              <Badge variant="secondary" className="bg-slate-50 text-slate-600 border-slate-100 font-normal">
+                Loading...
+              </Badge>
+            )}
             <Dialog>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-2">
@@ -119,7 +133,10 @@ export function MaintenanceCalendar() {
 
         <div className="grid grid-cols-7 flex-1">
           {calendarDays.map((day, idx) => {
-            const dayEvents = events.filter((ev) => isSameDay(ev.date, day))
+            const dayEvents = events.filter((ev) => {
+              const eventDate = new Date(ev.scheduled_date)
+              return isSameDay(eventDate, day)
+            })
             const isCurrentMonth = isSameMonth(day, monthStart)
 
             return (
@@ -142,7 +159,10 @@ export function MaintenanceCalendar() {
                   </span>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground">
+                      <button 
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground"
+                        aria-label="Add maintenance request"
+                      >
                         <PlusIcon className="size-3" />
                       </button>
                     </DialogTrigger>
@@ -159,19 +179,41 @@ export function MaintenanceCalendar() {
                   {dayEvents.map((event) => (
                     <Tooltip key={event.id}>
                       <TooltipTrigger asChild>
-                        <div className="bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 text-[10px] cursor-pointer hover:bg-blue-100 transition-colors">
-                          <div className="flex items-center gap-1 font-semibold text-blue-700 truncate">
+                        <div className={cn(
+                          "border rounded px-1.5 py-0.5 text-[10px] cursor-pointer transition-colors",
+                          event.request_type === 'Preventive' 
+                            ? "bg-blue-50 border-blue-100 hover:bg-blue-100" 
+                            : "bg-orange-50 border-orange-100 hover:bg-orange-100"
+                        )}>
+                          <div className={cn(
+                            "flex items-center gap-1 font-semibold truncate",
+                            event.request_type === 'Preventive' ? "text-blue-700" : "text-orange-700"
+                          )}>
                             <WrenchIcon className="size-2" />
-                            {event.equipment}
+                            {event.equipment?.name || 'Equipment'}
                           </div>
-                          <div className="text-blue-500 truncate">{event.technician}</div>
+                          <div className={cn(
+                            "truncate text-[9px]",
+                            event.request_type === 'Preventive' ? "text-blue-600" : "text-orange-600"
+                          )}>
+                            {event.request_type}
+                          </div>
+                          <div className={cn(
+                            "truncate",
+                            event.request_type === 'Preventive' ? "text-blue-500" : "text-orange-500"
+                          )}>
+                            {event.technician?.full_name || 'Unassigned'}
+                          </div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top">
                         <div className="space-y-1">
-                          <p className="font-bold">{event.equipment}</p>
-                          <p className="text-[10px] opacity-80">Technician: {event.technician}</p>
-                          <p className="text-[10px] opacity-80">Type: {event.type}</p>
+                          <p className="font-bold">{event.description}</p>
+                          <p className="text-[10px] opacity-80">Type: {event.request_type}</p>
+                          <p className="text-[10px] opacity-80">Equipment: {event.equipment?.name || 'N/A'}</p>
+                          <p className="text-[10px] opacity-80">Team: {event.team?.name || 'Unassigned'}</p>
+                          <p className="text-[10px] opacity-80">Technician: {event.technician?.full_name || 'Unassigned'}</p>
+                          <p className="text-[10px] opacity-80">Status: {event.status}</p>
                         </div>
                       </TooltipContent>
                     </Tooltip>

@@ -40,6 +40,7 @@ CREATE TABLE public.maintenance_teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  manager_id UUID REFERENCES public.users(id),
   created_by UUID REFERENCES public.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -47,6 +48,7 @@ CREATE TABLE public.maintenance_teams (
 
 -- Index for team lookups
 CREATE INDEX idx_teams_created_by ON public.maintenance_teams(created_by);
+CREATE INDEX idx_teams_manager_id ON public.maintenance_teams(manager_id);
 
 -- ================================================
 -- TEAM MEMBERS TABLE (Many-to-Many)
