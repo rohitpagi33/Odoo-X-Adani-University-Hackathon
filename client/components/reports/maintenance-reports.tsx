@@ -116,12 +116,13 @@ export function MaintenanceReports() {
 
   const recentReports = useMemo(() => {
     return requests
-      .filter((r) => r.status === "completed")
+      .filter((r) => r.status === "completed" && r.report_url)
       .slice(0, 3)
       .map((r) => ({
         name: r.description || r.request_type || "Completed Request",
         date: (r.status_changed_at || r.updated_at || r.created_at || new Date().toISOString()).split("T")[0],
-        size: r.report_url ? "PDF" : "-",
+        size: "PDF",
+        url: r.report_url,
       }))
   }, [requests])
 
@@ -244,25 +245,36 @@ export function MaintenanceReports() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {(recentReports.length ? recentReports : [{ name: "No completed reports yet", date: "-", size: "-" }]).map((report) => (
-              <div key={report.name} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded bg-background flex items-center justify-center border shadow-sm">
-                    <FileTextIcon className="size-5 text-primary" />
+            {recentReports.length > 0 ? (
+              recentReports.map((report) => (
+                <div key={report.name} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded bg-background flex items-center justify-center border shadow-sm">
+                      <FileTextIcon className="size-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{report.name}</p>
+                      <p className="text-xs text-muted-foreground">Generated on {report.date}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{report.name}</p>
-                    <p className="text-xs text-muted-foreground">Generated on {report.date}</p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-mono text-muted-foreground">{report.size}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => window.open(report.url, '_blank')}
+                      title="Download report"
+                    >
+                      <DownloadIcon className="size-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-mono text-muted-foreground">{report.size}</span>
-                  <Button variant="ghost" size="icon-sm">
-                    <DownloadIcon className="size-4" />
-                  </Button>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No reports with PDFs available yet
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
