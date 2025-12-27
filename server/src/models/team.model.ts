@@ -218,3 +218,21 @@ export const removeTeamMembers = async (teamId: string): Promise<boolean> => {
 
   return true;
 };
+
+export const deleteTeam = async (id: string): Promise<boolean> => {
+  // First remove all team members
+  await removeTeamMembers(id);
+  
+  // Then delete the team
+  const { error } = await supabaseAdmin
+    .from('maintenance_teams')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting team:', error);
+    return false;
+  }
+
+  return true;
+};

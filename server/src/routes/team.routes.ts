@@ -22,6 +22,9 @@ router.post('/', isAdminOrManager, teamController.createTeam);
 // PATCH /api/teams/:id - Only Admin and Manager can update
 router.patch('/:id', isAdminOrManager, teamController.updateTeam);
 
+// DELETE /api/teams/:id - Only Admin and Manager can delete
+router.delete('/:id', isAdminOrManager, teamController.deleteTeam);
+
 // GET /api/teams/:id - Get specific team
 router.get('/:id', teamController.getTeamById);
 

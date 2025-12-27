@@ -4,11 +4,13 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { PencilIcon, SearchIcon, MailIcon, CalendarIcon, ShieldIcon, UserIcon, CrownIcon } from 'lucide-react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { PencilIcon, SearchIcon, MailIcon, CalendarIcon, ShieldIcon, UserIcon, CrownIcon, Trash2Icon } from 'lucide-react'
 import { UserForm } from './user-form'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useToast } from '@/hooks/use-toast'
 
 type User = {
   id: string
@@ -40,12 +42,16 @@ const ROLE_CONFIG = {
 }
 
 export function UsersList() {
+  const { toast } = useToast()
   const [items, setItems] = React.useState<User[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
   const [searchTerm, setSearchTerm] = React.useState('')
   const [editUser, setEditUser] = React.useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = React.useState(false)
+  const [deleteUser, setDeleteUser] = React.useState<User | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   const fetchUsers = async () => {
     try {
@@ -86,6 +92,31 @@ export function UsersList() {
     setEditDialogOpen(false)
     setEditUser(null)
     fetchUsers()
+  }
+
+  const handleDelete = (user: User) => {
+    setDeleteUser(user)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteUser) return
+    
+    try {
+      setDeleting(true)
+      await api.delete(`/auth/users/${deleteUser.id}`)
+      toast({ description: 'User deleted successfully' })
+      setDeleteDialogOpen(false)
+      setDeleteUser(null)
+      fetchUsers()
+    } catch (err: any) {
+      toast({ 
+        description: err?.message || 'Failed to delete user', 
+        variant: 'destructive' 
+      })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const filteredUsers = items.filter(
@@ -185,14 +216,24 @@ export function UsersList() {
                                 </Badge>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => handleEdit(user)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80"
-                            >
-                              <PencilIcon className="size-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleEdit(user)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80"
+                              >
+                                <PencilIcon className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleDelete(user)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80 hover:text-destructive"
+                              >
+                                <Trash2Icon className="size-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-2">
@@ -226,6 +267,27 @@ export function UsersList() {
           <UserForm user={editUser} onSuccess={handleEditSuccess} />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteUser?.full_name}</strong>? This will permanently remove the user and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

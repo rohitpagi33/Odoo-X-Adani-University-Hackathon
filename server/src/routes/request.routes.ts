@@ -25,6 +25,9 @@ router.patch('/:id/assign', isAdminOrManager, requestController.assignRequestTec
 // PATCH /api/requests/:id - Only Admin and Manager can update request details
 router.patch('/:id', isAdminOrManager, requestController.updateRequest);
 
+// DELETE /api/requests/:id - Only Admin and Manager can delete
+router.delete('/:id', isAdminOrManager, requestController.deleteRequest);
+
 // GET /api/requests/:id - Get specific request
 router.get('/:id', requestController.getRequestById);
 

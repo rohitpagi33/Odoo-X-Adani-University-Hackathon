@@ -1,4 +1,4 @@
-import { findEquipmentById, getAllEquipments, addEquipment, updateEquipment as updateEquipmentModel, Equipment } from '../models/equipment.model';
+import { findEquipmentById, getAllEquipments, addEquipment, updateEquipment as updateEquipmentModel, deleteEquipment as deleteEquipmentModel, Equipment } from '../models/equipment.model';
 
 export const createEquipment = async (equipmentData: Omit<Equipment, 'id' | 'is_scrapped' | 'created_at' | 'updated_at'>): Promise<Equipment | null> => {
   const newEquipment = {
@@ -19,5 +19,9 @@ export const listAllEquipments = async (): Promise<Equipment[]> => {
 
 export const updateEquipment = async (id: string, updates: Partial<Equipment>): Promise<Equipment | null> => {
   return await updateEquipmentModel(id, updates);
+};
+
+export const deleteEquipment = async (id: string): Promise<boolean> => {
+  return await deleteEquipmentModel(id);
 };
 

@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, BoxIcon, MapPinIcon, BuildingIcon, WrenchIcon, UserIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -170,107 +170,187 @@ export function EquipmentForm({ equipment, onSuccess }: EquipmentFormProps) {
   }
 
   return (
-    <form className="grid gap-6 py-4" onSubmit={onSubmit}>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Equipment Name</Label>
-          <Input id="name" placeholder="e.g. HVAC Unit 01" value={name} onChange={(e) => setName(e.target.value)} />
+    <form onSubmit={onSubmit} className="space-y-6">
+      {/* Equipment Details Section */}
+      <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BoxIcon className="size-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Equipment Details</h3>
+            <p className="text-sm text-muted-foreground">Basic information about the equipment</p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="serial">Serial Number</Label>
-          <Input id="serial" placeholder="SN-12345678" value={serial} onChange={(e) => setSerial(e.target.value)} />
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-sm font-medium">Equipment Name *</Label>
+            <Input 
+              id="name" 
+              placeholder="e.g. HVAC Unit 01" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)}
+              className="bg-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="serial" className="text-sm font-medium">Serial Number *</Label>
+            <Input 
+              id="serial" 
+              placeholder="SN-12345678" 
+              value={serial} 
+              onChange={(e) => setSerial(e.target.value)}
+              className="bg-white"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Purchase Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn("w-full justify-start text-left font-normal", !purchaseDate && "text-muted-foreground")}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={purchaseDate} onSelect={setPurchaseDate} initialFocus />
-            </PopoverContent>
-          </Popover>
+      {/* Location & Department Section */}
+      <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-pink-50 p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-10 rounded-lg bg-purple-100 flex items-center justify-center">
+            <MapPinIcon className="size-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Location & Department</h3>
+            <p className="text-sm text-muted-foreground">Where and how the equipment is used</p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Warranty Expiry</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn("w-full justify-start text-left font-normal", !warrantyDate && "text-muted-foreground")}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {warrantyDate ? format(warrantyDate, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={warrantyDate} onSelect={setWarrantyDate} initialFocus />
-            </PopoverContent>
-          </Popover>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="location" className="text-sm font-medium">Location *</Label>
+            <Input 
+              id="location" 
+              placeholder="e.g. Block A, Floor 2" 
+              value={location} 
+              onChange={(e) => setLocation(e.target.value)}
+              className="bg-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="department" className="text-sm font-medium">Department *</Label>
+            <Select value={department} onValueChange={setDepartment}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Facilities">Facilities</SelectItem>
+                <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                <SelectItem value="IT Operations">IT Operations</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="location">Location</Label>
-          <Input id="location" placeholder="e.g. Block A, Floor 2" value={location} onChange={(e) => setLocation(e.target.value)} />
+      {/* Warranty & Dates Section */}
+      <div className="rounded-lg border bg-gradient-to-br from-emerald-50 to-teal-50 p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+            <CalendarIcon className="size-5 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Important Dates</h3>
+            <p className="text-sm text-muted-foreground">Purchase and warranty information</p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="department">Department</Label>
-          <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select department" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Facilities">Facilities</SelectItem>
-              <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-              <SelectItem value="IT Operations">IT Operations</SelectItem>
-            </SelectContent>
-          </Select>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Purchase Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal bg-white", !purchaseDate && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={purchaseDate} onSelect={setPurchaseDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Warranty Expiry</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal bg-white", !warrantyDate && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {warrantyDate ? format(warrantyDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={warrantyDate} onSelect={setWarrantyDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="team">Maintenance Team</Label>
-          <Select value={team} onValueChange={setTeam} disabled={loadingTeams}>
-            <SelectTrigger>
-              <SelectValue placeholder={loadingTeams ? "Loading teams..." : "Select team"} />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Team & Technician Section */}
+      <div className="rounded-lg border bg-gradient-to-br from-orange-50 to-yellow-50 p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-10 rounded-lg bg-orange-100 flex items-center justify-center">
+            <WrenchIcon className="size-5 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Maintenance Assignment</h3>
+            <p className="text-sm text-muted-foreground">Assign to team and default technician</p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="technician">Default Technician</Label>
-          <Select value={technician} onValueChange={setTechnician} disabled={loadingTechnicians || !team}>
-            <SelectTrigger>
-              <SelectValue placeholder={loadingTechnicians ? "Loading..." : "Select technician"} />
-            </SelectTrigger>
-            <SelectContent>
-              {technicians.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="team" className="text-sm font-medium">Maintenance Team *</Label>
+            <Select value={team} onValueChange={setTeam} disabled={loadingTeams}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder={loadingTeams ? "Loading teams..." : "Select team"} />
+              </SelectTrigger>
+              <SelectContent>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="technician" className="text-sm font-medium">Default Technician</Label>
+            <Select value={technician} onValueChange={setTechnician} disabled={loadingTechnicians || !team}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder={loadingTechnicians ? "Loading..." : "Select technician"} />
+              </SelectTrigger>
+              <SelectContent>
+                {technicians.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button variant="outline" type="button">Cancel</Button>
-        <Button type="submit" disabled={saving}>{saving ? (equipment ? "Updating..." : "Saving...") : (equipment ? "Update Equipment" : "Save Equipment")}</Button>
+        <Button type="submit" disabled={saving} size="lg" className="min-w-[140px]">
+          {saving ? (
+            <>
+              <span className="animate-pulse">{equipment ? 'Updating...' : 'Saving...'}</span>
+            </>
+          ) : (
+            <>
+              <BoxIcon className="size-4 mr-2" />
+              {equipment ? 'Update Equipment' : 'Save Equipment'}
+            </>
+          )}
+        </Button>
       </div>
     </form>
   )

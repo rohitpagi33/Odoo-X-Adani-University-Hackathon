@@ -75,3 +75,20 @@ export const updateEquipmentController = async (req: Request, res: Response): Pr
     res.status(500).json({ message: 'Error updating equipment', error });
   }
 };
+
+export const deleteEquipment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    
+    const success = await equipmentService.deleteEquipment(id);
+    
+    if (!success) {
+      res.status(404).json({ message: 'Equipment not found' });
+      return;
+    }
+    
+    res.status(200).json({ message: 'Equipment deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting equipment', error });
+  }
+};

@@ -118,3 +118,21 @@ export const updateTeam = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ message: 'Error updating team', error });
   }
 };
+
+export const deleteTeam = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    
+    const { deleteTeam: deleteTeamModel } = await import('../models/team.model');
+    const success = await deleteTeamModel(id);
+    
+    if (!success) {
+      res.status(404).json({ message: 'Team not found' });
+      return;
+    }
+    
+    res.status(200).json({ message: 'Team deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting team', error });
+  }
+};

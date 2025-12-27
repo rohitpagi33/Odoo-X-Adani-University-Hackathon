@@ -227,3 +227,17 @@ export const updateRequestDetails = async (id: string, updates: Partial<Maintena
   
   return await updateRequestModel(id, updates);
 };
+
+export const deleteRequest = async (id: string): Promise<boolean> => {
+  const { error } = await supabaseAdmin
+    .from('maintenance_requests')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting request:', error);
+    return false;
+  }
+
+  return true;
+};

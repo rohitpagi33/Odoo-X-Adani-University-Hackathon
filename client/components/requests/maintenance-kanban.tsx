@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon, FileIcon, SendIcon, PencilIcon } from "lucide-react"
+import { PlusIcon, ClockIcon, AlertCircleIcon, MoreHorizontalIcon, FilterIcon, WrenchIcon, FileIcon, SendIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import { format, isBefore } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { RequestForm } from "@/components/requests/request-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -56,6 +57,9 @@ export function MaintenanceKanban() {
   const [statusNotes, setStatusNotes] = React.useState("")
   const [statusFile, setStatusFile] = React.useState<{ base64: string; name: string } | null>(null)
   const [statusSaving, setStatusSaving] = React.useState(false)
+  const [deleteRequest, setDeleteRequest] = React.useState<MaintenanceRequest | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
   const role = React.useMemo(() => getRole(), [])
   const isTechnician = role === "technician"
   const isAdmin = role === "admin"
@@ -106,6 +110,31 @@ export function MaintenanceKanban() {
     setEditDialogOpen(false)
     setEditRequest(null)
     fetchRequests()
+  }
+
+  const handleDelete = (request: MaintenanceRequest) => {
+    setDeleteRequest(request)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteRequest) return
+    
+    try {
+      setDeleting(true)
+      await api.delete(`/requests/${deleteRequest.id}`)
+      toast({ description: 'Request deleted successfully' })
+      setDeleteDialogOpen(false)
+      setDeleteRequest(null)
+      fetchRequests()
+    } catch (err: any) {
+      toast({ 
+        description: err?.message || 'Failed to delete request', 
+        variant: 'destructive' 
+      })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const openStatusDialog = (request: MaintenanceRequest, next?: RequestStatus) => {
@@ -239,7 +268,9 @@ export function MaintenanceKanban() {
                         request={req} 
                         onUpdate={() => openStatusDialog(req)}
                         onEdit={() => handleEditRequest(req)}
+                        onDelete={() => handleDelete(req)}
                         canEdit={isAdmin && req.status !== "completed"}
+                        canDelete={isAdmin}
                       />
                     ))}
                   {requests.filter((req) => req.status === status).length === 0 && (
@@ -317,6 +348,27 @@ export function MaintenanceKanban() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Request</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this maintenance request for <strong>{deleteRequest?.equipment_name}</strong>? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmDelete} 
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   )
@@ -326,12 +378,16 @@ function KanbanCard({
   request,
   onUpdate,
   onEdit,
+  onDelete,
   canEdit,
+  canDelete,
 }: {
   request: MaintenanceRequest
   onUpdate: () => void
   onEdit: () => void
+  onDelete: () => void
   canEdit: boolean
+  canDelete: boolean
 }) {
   const scheduledDate = new Date(request.scheduled_date)
   const isOverdue = isBefore(scheduledDate, new Date()) && request.status !== "completed"
@@ -382,6 +438,11 @@ function KanbanCard({
           {canEdit && (
             <Button variant="ghost" size="icon-sm" className="size-6" onClick={onEdit}>
               <PencilIcon className="size-3.5" />
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="ghost" size="icon-sm" className="size-6 hover:text-destructive" onClick={onDelete}>
+              <Trash2Icon className="size-3.5" />
             </Button>
           )}
           <Button variant="ghost" size="icon-sm" className="size-6 -mr-2">

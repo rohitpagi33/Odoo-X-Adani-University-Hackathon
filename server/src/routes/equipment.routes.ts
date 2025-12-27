@@ -19,6 +19,9 @@ router.get('/:id', equipmentController.getEquipmentById);
 // PATCH /api/equipment/:id - Only Admin and Manager can update
 router.patch('/:id', isAdminOrManager, equipmentController.updateEquipmentController);
 
+// DELETE /api/equipment/:id - Only Admin and Manager can delete
+router.delete('/:id', isAdminOrManager, equipmentController.deleteEquipment);
+
 // GET /api/equipment/:id/requests - All authenticated users can view
 router.get('/:id/requests', equipmentController.getEquipmentRequests);
 

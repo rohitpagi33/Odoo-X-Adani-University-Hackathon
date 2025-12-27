@@ -4,11 +4,13 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { TeamForm } from './team-form'
-import { PencilIcon, SearchIcon, UsersIcon, UserIcon, CalendarIcon } from 'lucide-react'
+import { PencilIcon, SearchIcon, UsersIcon, UserIcon, CalendarIcon, Trash2Icon } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useToast } from '@/hooks/use-toast'
 
 type Team = {
   id: string
@@ -34,12 +36,16 @@ const TEAM_COLORS = [
 ]
 
 export function TeamsList() {
+  const { toast } = useToast()
   const [items, setItems] = React.useState<Team[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
   const [searchTerm, setSearchTerm] = React.useState('')
   const [editTeam, setEditTeam] = React.useState<Team | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [deleteTeam, setDeleteTeam] = React.useState<Team | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   const fetchTeams = React.useCallback(async () => {
     try {
@@ -66,6 +72,31 @@ export function TeamsList() {
     setDialogOpen(false)
     setEditTeam(null)
     fetchTeams()
+  }
+
+  const handleDelete = (team: Team) => {
+    setDeleteTeam(team)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTeam) return
+    
+    try {
+      setDeleting(true)
+      await api.delete(`/teams/${deleteTeam.id}`)
+      toast({ description: 'Team deleted successfully' })
+      setDeleteDialogOpen(false)
+      setDeleteTeam(null)
+      fetchTeams()
+    } catch (err: any) {
+      toast({ 
+        description: err?.message || 'Failed to delete team', 
+        variant: 'destructive' 
+      })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const filteredTeams = items.filter(
@@ -137,14 +168,24 @@ export function TeamsList() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => handleEdit(team)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80"
-                    >
-                      <PencilIcon className="size-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleEdit(team)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80"
+                      >
+                        <PencilIcon className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleDelete(team)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white/80 hover:text-destructive"
+                      >
+                        <Trash2Icon className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -204,6 +245,27 @@ export function TeamsList() {
           <TeamForm team={editTeam} onSuccess={handleSuccess} />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Team</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTeam?.name}</strong>? This will remove the team and unassign all members. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
