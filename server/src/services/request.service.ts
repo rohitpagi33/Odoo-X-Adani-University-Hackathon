@@ -1,7 +1,7 @@
 import { 
   findRequestById, 
   addRequest, 
-  updateRequest, 
+  updateRequest as updateRequestModel, 
   getAllRequests,
   getRequestsByEquipmentId,
   getRequestsByType,
@@ -10,30 +10,27 @@ import {
   RequestType
 } from '../models/request.model';
 import { findEquipmentById, updateEquipment } from '../models/equipment.model';
-import { v4 as uuidv4 } from 'uuid';
 
-export const createRequest = (requestData: Omit<MaintenanceRequest, 'id' | 'createdAt' | 'maintenanceTeamId' | 'technicianId'>): MaintenanceRequest | null => {
-  // Fetch equipment to auto-fill maintenanceTeamId and technicianId
-  const equipment = findEquipmentById(requestData.equipmentId);
+export const createRequest = async (requestData: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at' | 'maintenance_team_id' | 'technician_id' | 'status'>): Promise<MaintenanceRequest | null> => {
+  // Fetch equipment to auto-fill maintenance_team_id and technician_id
+  const equipment = await findEquipmentById(requestData.equipment_id);
   
   if (!equipment) {
     return null;
   }
   
-  const newRequest: MaintenanceRequest = {
-    id: uuidv4(),
+  const newRequest = {
     ...requestData,
-    maintenanceTeamId: equipment.maintenanceTeamId,
-    technicianId: equipment.defaultTechnicianId,
-    status: 'New',
-    createdAt: new Date(),
+    maintenance_team_id: equipment.maintenance_team_id,
+    technician_id: equipment.default_technician_id,
+    status: 'New' as RequestStatus,
   };
   
-  return addRequest(newRequest);
+  return await addRequest(newRequest);
 };
 
-export const updateRequestStatus = (id: string, status: RequestStatus): MaintenanceRequest | null => {
-  const request = findRequestById(id);
+export const updateRequestStatus = async (id: string, status: RequestStatus): Promise<MaintenanceRequest | null> => {
+  const request = await findRequestById(id);
   
   if (!request) {
     return null;
@@ -55,35 +52,38 @@ export const updateRequestStatus = (id: string, status: RequestStatus): Maintena
   
   // If moved to Scrap, update equipment
   if (status === 'Scrap') {
-    updateEquipment(request.equipmentId, { isScrapped: true });
+    await updateEquipment(request.equipment_id, { is_scrapped: true });
   }
   
-  return updateRequest(id, { status });
+  return await updateRequestModel(id, { status });
 };
 
-export const assignRequestTechnician = (id: string, technicianId: string): MaintenanceRequest | null => {
-  return updateRequest(id, { technicianId });
+export const assignRequestTechnician = async (id: string, technicianId: string): Promise<MaintenanceRequest | null> => {
+  return await updateRequestModel(id, { technician_id: technicianId });
 };
 
-export const listAllRequests = (): MaintenanceRequest[] => {
-  return getAllRequests();
+export const listAllRequests = async (filters?: { 
+  technicianId?: string;
+  status?: RequestStatus;
+  role?: string;
+}): Promise<MaintenanceRequest[]> => {
+  return await getAllRequests(filters);
 };
 
-export const listRequestsByEquipment = (equipmentId: string): MaintenanceRequest[] => {
-  return getRequestsByEquipmentId(equipmentId);
+export const listRequestsByEquipment = async (equipmentId: string): Promise<MaintenanceRequest[]> => {
+  return await getRequestsByEquipmentId(equipmentId);
 };
 
-export const listRequestsByType = (type: RequestType): MaintenanceRequest[] => {
-  return getRequestsByType(type);
+export const listRequestsByType = async (type: RequestType): Promise<MaintenanceRequest[]> => {
+  return await getRequestsByType(type);
 };
 
-export const getOverdueRequests = (): MaintenanceRequest[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+export const getOverdueRequests = async (): Promise<MaintenanceRequest[]> => {
+  const today = new Date().toISOString().split('T')[0];
   
-  return getAllRequests().filter(req => {
-    const scheduledDate = new Date(req.scheduledDate);
-    scheduledDate.setHours(0, 0, 0, 0);
-    return scheduledDate < today && req.status !== 'Repaired';
+  const allRequests = await getAllRequests();
+  return allRequests.filter(req => {
+    return req.scheduled_date < today && req.status !== 'Repaired';
   });
 };
+

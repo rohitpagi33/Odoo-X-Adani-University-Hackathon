@@ -1,21 +1,37 @@
 import { Request, Response } from 'express';
 import * as requestService from '../services/request.service';
+import { AuthRequest } from '../middleware/auth.middleware';
 
-export const getAllRequests = async (req: Request, res: Response): Promise<void> => {
+export const getAllRequests = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const requests = requestService.listAllRequests();
+    const filters: any = {};
+    
+    // Filter by user role
+    if (req.user) {
+      if (req.user.role === 'technician') {
+        filters.technicianId = req.user.id;
+        filters.role = 'technician';
+      }
+    }
+    
+    const requests = await requestService.listAllRequests(filters);
     res.status(200).json(requests);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching requests', error });
   }
 };
 
-export const createRequest = async (req: Request, res: Response): Promise<void> => {
+export const createRequest = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const request = requestService.createRequest(req.body);
+    const requestData = {
+      ...req.body,
+      created_by: req.user?.id
+    };
+    
+    const request = await requestService.createRequest(requestData);
     
     if (!request) {
-      res.status(404).json({ message: 'Equipment not found' });
+      res.status(404).json({ message: 'Equipment not found or request creation failed' });
       return;
     }
     
@@ -30,7 +46,7 @@ export const updateRequestStatus = async (req: Request, res: Response): Promise<
     const { id } = req.params;
     const { status } = req.body;
     
-    const request = requestService.updateRequestStatus(id, status);
+    const request = await requestService.updateRequestStatus(id, status);
     
     if (!request) {
       res.status(404).json({ message: 'Request not found' });
@@ -48,7 +64,7 @@ export const assignRequestTechnician = async (req: Request, res: Response): Prom
     const { id } = req.params;
     const { technicianId } = req.body;
     
-    const request = requestService.assignRequestTechnician(id, technicianId);
+    const request = await requestService.assignRequestTechnician(id, technicianId);
     
     if (!request) {
       res.status(404).json({ message: 'Request not found' });
@@ -70,7 +86,7 @@ export const getCalendarRequests = async (req: Request, res: Response): Promise<
       return;
     }
     
-    const requests = requestService.listRequestsByType(type as any);
+    const requests = await requestService.listRequestsByType(type as any);
     res.status(200).json(requests);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching calendar requests', error });

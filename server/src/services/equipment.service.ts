@@ -1,20 +1,23 @@
-import { findEquipmentById, getAllEquipments, addEquipment, Equipment } from '../models/equipment.model';
-import { v4 as uuidv4 } from 'uuid';
+import { findEquipmentById, getAllEquipments, addEquipment, updateEquipment as updateEquipmentModel, Equipment } from '../models/equipment.model';
 
-export const createEquipment = (equipmentData: Omit<Equipment, 'id' | 'isScrapped'>): Equipment => {
-  const newEquipment: Equipment = {
-    id: uuidv4(),
+export const createEquipment = async (equipmentData: Omit<Equipment, 'id' | 'is_scrapped' | 'created_at' | 'updated_at'>): Promise<Equipment | null> => {
+  const newEquipment = {
     ...equipmentData,
-    isScrapped: false,
+    is_scrapped: false,
   };
   
-  return addEquipment(newEquipment);
+  return await addEquipment(newEquipment);
 };
 
-export const getEquipmentById = (id: string): Equipment | undefined => {
-  return findEquipmentById(id);
+export const getEquipmentById = async (id: string): Promise<Equipment | null> => {
+  return await findEquipmentById(id);
 };
 
-export const listAllEquipments = (): Equipment[] => {
-  return getAllEquipments();
+export const listAllEquipments = async (): Promise<Equipment[]> => {
+  return await getAllEquipments();
 };
+
+export const updateEquipment = async (id: string, updates: Partial<Equipment>): Promise<Equipment | null> => {
+  return await updateEquipmentModel(id, updates);
+};
+

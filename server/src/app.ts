@@ -1,5 +1,6 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
+import authRoutes from './routes/auth.routes';
 import equipmentRoutes from './routes/equipment.routes';
 import teamRoutes from './routes/team.routes';
 import requestRoutes from './routes/request.routes';
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/requests', requestRoutes);
@@ -20,8 +22,11 @@ app.use('/api/requests', requestRoutes);
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ 
     message: 'GearGuard API is running',
-    version: '1.0.0',
+    version: '2.0.0',
+    database: 'Supabase PostgreSQL',
+    authentication: 'Enabled',
     endpoints: {
+      auth: '/api/auth',
       equipment: '/api/equipment',
       teams: '/api/teams',
       requests: '/api/requests'

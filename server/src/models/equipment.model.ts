@@ -1,38 +1,94 @@
+import { supabase } from '../config/supabase';
+
 export interface Equipment {
   id: string;
   name: string;
-  serialNumber: string;
+  serial_number: string;
   department: string;
-  assignedEmployee?: string;
-  purchaseDate: Date;
-  warrantyExpiry?: Date;
+  assigned_employee?: string;
+  purchase_date: string;
+  warranty_expiry?: string;
   location: string;
-  maintenanceTeamId: string;
-  defaultTechnicianId: string;
-  isScrapped: boolean;
+  maintenance_team_id?: string;
+  default_technician_id?: string;
+  is_scrapped: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// In-memory storage
-export const equipments: Equipment[] = [];
+// Database operations
+export const findEquipmentById = async (id: string): Promise<Equipment | null> => {
+  const { data, error } = await supabase
+    .from('equipment')
+    .select('*')
+    .eq('id', id)
+    .single();
 
-// Helper functions
-export const findEquipmentById = (id: string): Equipment | undefined => {
-  return equipments.find(eq => eq.id === id);
+  if (error) {
+    console.error('Error fetching equipment:', error);
+    return null;
+  }
+
+  return data;
 };
 
-export const addEquipment = (equipment: Equipment): Equipment => {
-  equipments.push(equipment);
-  return equipment;
+export const addEquipment = async (equipment: Omit<Equipment, 'id' | 'created_at' | 'updated_at'>): Promise<Equipment | null> => {
+  const { data, error } = await supabase
+    .from('equipment')
+    .insert([equipment])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding equipment:', error);
+    return null;
+  }
+
+  return data;
 };
 
-export const updateEquipment = (id: string, updates: Partial<Equipment>): Equipment | undefined => {
-  const index = equipments.findIndex(eq => eq.id === id);
-  if (index === -1) return undefined;
-  
-  equipments[index] = { ...equipments[index], ...updates };
-  return equipments[index];
+export const updateEquipment = async (id: string, updates: Partial<Equipment>): Promise<Equipment | null> => {
+  const { data, error } = await supabase
+    .from('equipment')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating equipment:', error);
+    return null;
+  }
+
+  return data;
 };
 
-export const getAllEquipments = (): Equipment[] => {
-  return equipments;
+export const getAllEquipments = async (): Promise<Equipment[]> => {
+  const { data, error } = await supabase
+    .from('equipment')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching equipments:', error);
+    return [];
+  }
+
+  return data || [];
 };
+
+export const deleteEquipment = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('equipment')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting equipment:', error);
+    return false;
+  }
+
+  return true;
+};
+
