@@ -18,7 +18,6 @@ const createTransporter = async () => {
       },
     });
   }
-
   // Use well-known service if provided (gmail, outlook, etc.)
   if (process.env.MAIL_SERVICE && process.env.MAIL_FROM && process.env.MAIL_PASSWORD) {
     return nodemailer.createTransport({
